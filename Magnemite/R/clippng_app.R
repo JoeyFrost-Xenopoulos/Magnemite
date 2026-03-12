@@ -145,6 +145,19 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
       }
     })
 
+    reset_clipping_state <- function(reset_toggle = FALSE) {
+      clipping_step(0)
+      trace_coords$top_start <- NULL
+      trace_coords$top_end <- NULL
+      trace_coords$bottom_start <- NULL
+      trace_coords$bottom_end <- NULL
+      clipped_top_trace(NULL)
+
+      if (isTRUE(reset_toggle)) {
+        shiny::updateCheckboxInput(session, "clippng", value = FALSE)
+      }
+    }
+
     get_photos_for_year <- function(year) {
       if (is.null(year) || !nzchar(year)) {
         return(character(0))
@@ -269,13 +282,12 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
       }
     })
 
+    shiny::observeEvent(input$confirm, {
+      reset_clipping_state(reset_toggle = TRUE)
+    })
+
     shiny::observeEvent(input$retry, {
-      clipping_step(0)
-      trace_coords$top_start <- NULL
-      trace_coords$top_end <- NULL
-      trace_coords$bottom_start <- NULL
-      trace_coords$bottom_end <- NULL
-      clipped_top_trace(NULL)
+      reset_clipping_state(reset_toggle = FALSE)
     })
 
     output$showSaveButton <- shiny::reactive({
@@ -289,12 +301,7 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
 
       if (!is.na(current_index) && current_index < length(photos)) {
         shiny::updateSelectInput(session, "tiff_file", selected = photos[current_index + 1])
-        clipping_step(0)
-        trace_coords$top_start <- NULL
-        trace_coords$top_end <- NULL
-        trace_coords$bottom_start <- NULL
-        trace_coords$bottom_end <- NULL
-        clipped_top_trace(NULL)
+        reset_clipping_state(reset_toggle = FALSE)
         return(TRUE)
       }
 

@@ -1,0 +1,116 @@
+---
+title: "bruh"
+author: "Joey Frost-Xenopoulos - 0730136"
+date: "2025-01-22"
+output: html_document
+---
+
+```{r, fig.height = 9}
+# Setting up the matrices for processing
+library(magick)
+library(raster)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+set.seed(123)
+
+# Define directories
+base_dir <- normalizePath(
+  Sys.getenv("MAGNETO_SERVER_DIR", unset = "D:/SERVER/1902"),
+  winslash = "/",
+  mustWork = FALSE
+)
+output_dir <- normalizePath(
+  Sys.getenv("MAGNETO_TT_IMAGES_DIR", unset = file.path(getwd(), "TTimages")),
+  winslash = "/",
+  mustWork = FALSE
+)
+
+# Ensure the output directory exists
+if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+}
+
+# Get all base names starting with "AGC-" and ending with a specific pattern
+files <- list.files(base_dir, pattern = "^AGC-.*\\.tif$", full.names = FALSE)
+base_names <- gsub("\\.tif$", "", files)  # Remove ".tif" extension
+
+# Loop through each base name
+for (base_name in base_names) {
+    # Construct paths using the base name
+    tif_path <- paste0(base_dir, base_name, ".tif")
+    rds_path <- paste0(base_dir, base_name, ".tif-Digitized.rds")
+    tt_rds_path <- file.path(base_dir, "TimingTicks", paste0(base_name, ".rds"))
+    
+    # Check if required files exist
+    if (!file.exists(tif_path) || !file.exists(rds_path) || !file.exists(tt_rds_path)) {
+        cat("Skipping", base_name, "- Missing files\n")
+        next
+    }
+    
+    # Load data
+    img_rds <- readRDS(rds_path)
+    obj <- readRDS(tt_rds_path)
+    img <- image_read(tif_path)
+    
+    # Rotate image if needed
+    if (image_info(img)$width < image_info(img)$height) {
+        img <- image_rotate(img, -90)
+    }
+    
+    # Get image dimensions
+    img_height <- image_info(img)$height
+    img_width <- image_info(img)$width
+    
+    # Draw on the image
+    img <- image_draw(img)
+    
+    # Add red lines for top trace (adjust for inverted y-axis)
+    lines(seq(from = img_rds$TopTraceStartEnds$Start + 125, 
+              to = img_rds$TopTraceStartEnds$End + 125),
+          y = img_height - (img_rds$TopTraceMatrix + 96), col = "red")
+    
+    # Add red lines for bottom trace (adjust for inverted y-axis)
+    lines(seq(from = img_rds$BottomTraceStartEnds$Start + 125, 
+              to = img_rds$BottomTraceStartEnds$End + 125),
+          y = img_height - (img_rds$BottomTraceMatrix + 96), col = "red")
+    
+    # Add green line for the filtered range (adjust for inverted y-axis)
+   # lines(obj$X, img_height - obj$Y, col = "green")
+    
+    for (i in seq_along(tt[[2]][["median_X"]])) {
+  segments(
+    x0 = tt[[2]][["median_X"]][i],  # x position for the line
+    x1 = tt[[2]][["median_X"]][i],  # same x for vertical line
+    y0 = img_height - 300,           # starting y position
+    y1 = img_height - 500,           # ending y position
+    col = "red",        # line color
+    lwd = 1             # line width
+  )
+}  
+
+
+  for (i in seq_along(tt[[1]][["median_X"]])) {
+  segments(
+    x0 = tt[[1]][["median_X"]][i],  # x position for the line
+    x1 = tt[[1]][["median_X"]][i],  # same x for vertical line
+    y0 = img_height - 100,           # starting y position
+    y1 = img_height - 300,           # ending y position
+    col = "red",        # line color
+    lwd = 1             # line width
+  )
+}
+    # Finalize drawing
+    dev.off()
+    
+    # Save the modified image
+    output_path <- paste0(output_dir, base_name, ".png")
+    image_write(img, path = output_path, format = "png")
+    
+    cat("Processed and saved:", output_path, "\n")
+}
+
+cat("All images processed and saved in", output_dir, "\n")
+
+
+```

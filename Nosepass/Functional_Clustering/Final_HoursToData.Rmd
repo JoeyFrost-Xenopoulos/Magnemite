@@ -1,0 +1,656 @@
+---
+title: "Final_TimeFIX"
+author: "Joey Frost-Xenopoulos - 0730136"
+date: "2025-03-03"
+output: html_document
+---
+
+```{r}
+server_dir <- normalizePath(
+  Sys.getenv("MAGNETO_SERVER_DIR", unset = "D:/SERVER/1902"),
+  winslash = "/",
+  mustWork = FALSE
+)
+attempts_dir <- normalizePath(
+  Sys.getenv("MAGNETO_ATTEMPTS_DIR", unset = file.path(getwd(), "Attempts")),
+  winslash = "/",
+  mustWork = FALSE
+)
+
+base_dir <- server_dir
+data_files <- list.files(base_dir, pattern = "\\.RDS$|\\.rds$", full.names = TRUE)
+names_data_files <- sub("\\.RDS$|\\.rds$", "", basename(data_files))
+names_data_files <- sub("\\.tif-(Digitized|FailToProcess)$", "", names_data_files)
+
+base_dir <- attempts_dir
+files <- list.files(base_dir, pattern = "\\.rds$", full.names = TRUE)
+names_hours_files <- sub("\\.rds$", "", basename(files))
+
+missing_days <- setdiff(names_data_files, names_hours_files)
+print(missing_days)
+print("AGC-D-19021106-19021107")
+data_files <- data_files[!(names_data_files %in% missing_days) & names_data_files != "AGC-D-19021106-19021107"]
+files <- files[!grepl("AGC-D-19021106-19021107", files)]
+```
+
+
+
+```{r}
+next_bot_time_seq <- c()
+
+for(i in 1:length(files)){
+  if(i == 176){break}
+  
+  # CALLING RDS READS
+  print(i)
+  tt <- readRDS(files[i])
+  data <- readRDS(data_files[i])
+  next_data <- readRDS(data_files[i+1])
+  
+  # PULLING OUT TOP AND BOT DATA AND HOURS
+  bot_data <- data$BottomTraceMatrix
+  bot_hours <- as.numeric(format(as.POSIXct(tt[[1]]$actual_time, format="%H:%M"), "%H"))
+  bot_time_data <- data.frame(x_vals = tt[[1]]$median_X, bot_hours)
+  top_data <- data$TopTraceMatrix
+  top_hours <- as.numeric(format(as.POSIXct(tt[[2]]$actual_time, format="%H:%M"), "%H"))
+  top_time_data <- data.frame(x_vals = tt[[2]]$median_X, top_hours)
+  
+  # MUST DO IT FOR NEXT DAY AS WWELL
+  tt_2 <- readRDS(files[i+1])
+  next_bot_data <- next_data$BottomTraceMatrix
+  next_bot_hours <- as.numeric(format(as.POSIXct(tt_2[[1]]$actual_time, format="%H:%M"), "%H"))
+  next_bot_time_data <- data.frame(x_vals = tt_2[[1]]$median_X, next_bot_hours)
+  next_top_data <- data$TopTraceMatrix
+  next_top_hours <- as.numeric(format(as.POSIXct(tt_2[[2]]$actual_time, format="%H:%M"), "%H"))
+  next_top_time_data <- data.frame(x_vals = tt_2[[2]]$median_X, next_top_hours)
+  
+  # INITIALIZING TIME SEQUENCES
+  bot_time_seq <- c()
+  top_time_seq <- c()
+  
+  if(!is.null(next_bot_time_seq)){
+    bot_time_seq <- next_bot_time_seq
+  }
+  
+  if(is.null(data$TopTraceMatrix))
+  {
+    print(i)
+    next
+  }
+  
+  if(i == 1) # The very first OBSERVATION
+  {
+    # Beginning of time
+    start_time_x <- data$BottomTraceStartEnds$Start + 125 # Start of the sequence
+    end_time_x <- bot_time_data$x_vals[1] # End of the sequence
+    length_start <- length(seq(from = start_time_x, to = end_time_x))
+    step_val <- round(1 / length_start, 6)
+    seq <- seq(from = bot_hours[1], by = -step_val)
+    seq <- seq[1:length_start]
+    seq <- rev(seq)
+    # The start of the sequence
+    bot_time_seq <- seq
+  }
+  
+  # NORMAL FILLING IN TIME FOR BOT DATA
+  if(!is.null(bot_data)){
+  for (j in 1:(length(bot_hours) - 1)) {
+    # Skip if j + 1 exceeds the length of hours
+    if (j + 1 > length(bot_hours)) next
+    # Define start and end times for the current segment
+    start_time_j <- bot_hours[j]
+    end_time_j <- bot_hours[j + 1]
+    # Define corresponding x values
+    start_time_x <- bot_time_data$x_vals[j]
+    end_time_x <- bot_time_data$x_vals[j + 1]
+    # Generate the sequence for the x values
+    data_sequence <- seq(from = start_time_x, to = end_time_x)
+    # Calculate the step value
+    step_val <- round(1 / length(data_sequence), 6)  # Step size in terms of time
+    # Going from hour 23 to 0
+    if (start_time_j > end_time_j) {
+      # Split the sequence into two parts: from start_time_j to 24, and from 0 to end_time_j
+      seq_part1 <- seq(from = start_time_j, to = 24, by = step_val)
+      seq_part2 <- seq(from = 0, to = end_time_j, by = step_val)
+      # Combine the two parts
+      time_data_seq <- c(seq_part1, seq_part2)
+    } else {
+      # Normal case: no midnight crossing
+      time_data_seq <- seq(from = start_time_j, to = end_time_j, by = step_val)
+    }
+    
+    last_val <- length(time_data_seq)
+    time_data_seq[last_val] <- round(tail(time_data_seq, 1))
+    
+    # Appending the bot_time_seq
+    bot_time_seq <- c(bot_time_seq, time_data_seq)
+  }}
+  
+  # TRANSITION BETWEEN BOT AND TOP TRACES FOR SAME PHOTO
+  if(!is.null(bot_data) && !is.null(top_data))
+  {
+    # START AND STOP POINTS X VALUES
+    bot_seq <- c()
+    top_seq <- c()
+    bot_start_time_x <- tail(bot_time_data$x_vals, 1) # Start of the bot sequence
+    bot_end_time_x <- data$BottomTraceStartEnds$End + 125 # End of the bot sequence
+    top_start_time_x <- data$TopTraceStartEnds$Start + 125
+    top_end_time_x <- top_time_data$x_vals[1]
+    # LAST BOT HOUR AND FIRST TOP HOUR
+    last_hour_bot <- tail(bot_hours, 1)
+    first_hour_top <- head(top_hours, 1)
+    
+    # CHECKING IF TIME WORKS AS IT SHOULD
+    if((last_hour_bot + 1) == first_hour_top) {
+      end_bot_seq <- seq(from = bot_start_time_x, to = bot_end_time_x)
+      start_top_seq <- seq(from = top_start_time_x, to = top_end_time_x)
+      length_seq <- length(end_bot_seq) + length(start_top_seq)
+      step_val <- round(1 / length_seq, 6)
+      seq <- seq(from = last_hour_bot, to = first_hour_top, by = step_val)
+      bot_seq <- seq[1:length(end_bot_seq)]  # Take first part of the sequence
+      top_seq <- seq[(length(end_bot_seq) + 1):length(seq)]  # Take remaining part
+      
+      # ADDING BOT_SEQ
+      bot_time_seq <- c(bot_time_seq, bot_seq)
+      bot_time_seq <- unique(bot_time_seq)
+      bot_time_seq <- bot_time_seq[1:length(data$BottomTraceMatrix)]
+      # ADDING TOP_SEQ
+      top_time_seq <- top_seq
+      
+      # Saving stuff to DATA
+      data$BotTimeSeq <- bot_time_seq
+      data$tt <- tt
+      saveRDS(data, data_files[i])
+    } 
+    
+    if((last_hour_bot + 1) != first_hour_top)
+    {
+      # NORMAL BOT TOP START END TIMES
+      # BOT End of time
+      start_time_x <- tail(bot_time_data$x_vals, 1) # Start of the sequence
+      end_time_x <- data$BottomTraceStartEnds$End + 125 # End of the sequence
+      length_end <- length(seq(from = bot_start_time_x, to = bot_end_time_x))
+      step_val <- round(1 / length_end, 6)
+      last_hour <- tail(bot_hours, 1)
+      seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+      seq <- seq[1:length_end]
+      # Slapping sequence onto end of the time vector
+      bot_time_seq <- c(bot_time_seq, seq)
+      bot_time_seq <- unique(bot_time_seq)
+      # Subset to take the correct length of time.
+      bot_time_seq <- bot_time_seq[1:length(data$BottomTraceMatrix)]
+      # Saving stuff to DATA
+      data$BotTimeSeq <- bot_time_seq
+      data$tt <- tt
+      saveRDS(data, data_files[i])
+      
+      # TOP START OF TIME
+      start_time_x <- data$TopTraceStartEnds$Start + 125
+      end_time_x <- top_time_data$x_vals[1]
+      length_start <- length(seq(from = top_start_time_x, to = top_end_time_x))
+      step_val <- round(1 / length_start, 6)
+      seq <- seq(from = top_hours[1], by = -step_val)
+      seq <- seq[1:length_start]
+      seq <- rev(seq)
+      top_time_seq <- seq
+    }
+  }
+  
+  # NORMAL FILLING IN TIME FOR TOP DATA
+  if(!is.null(top_data)){
+  for (j in 1:(length(top_hours) - 1)) {
+    if (j + 1 > length(top_hours)) next
+    
+    start_time_j <- top_hours[j]
+    end_time_j <- top_hours[j + 1]
+    start_time_x <- top_time_data$x_vals[j]
+    end_time_x <- top_time_data$x_vals[j + 1]
+    data_sequence <- seq(from = start_time_x, to = end_time_x)
+    step_val <- round(1 / length(data_sequence), 6)
+    
+    if (start_time_j > end_time_j) {
+      seq_part1 <- seq(from = start_time_j, to = 24, by = step_val)
+      seq_part2 <- seq(from = 0, to = end_time_j, by = step_val)
+      time_data_seq <- c(seq_part1, seq_part2)
+    } else {
+      time_data_seq <- seq(from = start_time_j, to = end_time_j, by = step_val)
+    }
+    
+    last_val <- length(time_data_seq)
+    time_data_seq[last_val] <- round(tail(time_data_seq, 1))
+    
+    top_time_seq <- c(top_time_seq, time_data_seq)
+  }}
+  
+  # TRANSITION BETWEEN TOP AND NEXT PHOTO BOT (IF IT EXISTS)
+  next_bot_data <- next_data$BottomTraceMatrix
+  
+  if(!is.null(next_bot_data))
+  {
+    # START AND STOP POINTS X VALUES
+    bot_seq <- c()
+    top_seq <- c()
+    top_start_time_x <- tail(top_time_data$x_vals, 1)
+    top_end_time_x <- data$TopTraceStartEnds$End + 125
+    bot_start_time_x <- next_data$BottomTraceStartEnds$Start + 125 # Start of the sequence
+    bot_end_time_x <- next_bot_time_data$x_vals[1] # End of the sequence
+    # LAST TOP HOUR AND FIRST BOT HOUR
+    last_hour_top <- tail(top_hours, 1)
+    first_hour_bot <- head(next_bot_hours, 1)
+    
+    if((last_hour_top + 1) == first_hour_bot){
+      end_top_seq <- seq(from = top_start_time_x, to = top_end_time_x)
+      start_bot_seq <- seq(from = bot_start_time_x, to = bot_end_time_x)
+      length_seq <- length(end_top_seq) + length(start_bot_seq)
+      step_val <- round(1 / length_seq, 6)
+      seq <- seq(from = last_hour_top, to = first_hour_bot, by = step_val)
+      top_seq <- seq[1:length(end_top_seq)]  # Take first part of the sequence
+      bot_seq <- seq[(length(end_top_seq) + 1):length(seq)]  # Take remaining part
+      
+      # ADDING BOT_SEQ
+      top_time_seq <- c(top_time_seq, top_seq)
+      top_time_seq <- unique(top_time_seq)
+      top_time_seq <- top_time_seq[1:length(data$TopTraceMatrix)]
+      
+      # ADDING TOP_SEQ
+      next_bot_time_seq <- bot_seq
+      
+      # Saving stuff to DATA
+      data$TopTimeSeq <- top_time_seq
+      data$tt <- tt
+      saveRDS(data, data_files[i])
+    }
+    if((last_hour_top + 1) != first_hour_bot)
+    {
+      # NORMAL BOT TOP START END TIMES
+      # TOP End of time
+      start_time_x <- tail(top_time_data$x_vals, 1) # Start of the sequence
+      end_time_x <- data$TopTraceStartEnds$End + 125 # End of the sequence
+      length_end <- length(seq(from = top_start_time_x, to = top_end_time_x))
+      step_val <- round(1 / length_end, 6)
+      last_hour <- tail(top_hours, 1)
+      seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+      seq <- seq[1:length_end]
+      # Slapping sequence onto end of the time vector
+      top_time_seq <- c(top_time_seq, seq)
+      top_time_seq <- unique(top_time_seq)
+      # Subset to take the correct length of time.
+      top_time_seq <- top_time_seq[1:length(data$TopTraceMatrix)]
+      # Saving stuff to DATA
+      data$TopTimeSeq <- top_time_seq
+      data$tt <- tt
+      saveRDS(data, data_files[i])
+      
+      # NEXT BOT START OF TIME
+      next_bot_start_time_x <- next_data$BottomTraceStartEnds$Start + 125
+      next_bot_end_time_x <- next_bot_time_data$x_vals[1]
+      length_start <- length(seq(from = next_bot_start_time_x, to = next_bot_end_time_x))
+      step_val <- round(1 / length_start, 6)
+      seq <- seq(from = next_bot_hours[1], by = -step_val)
+      seq <- seq[1:length_start]
+      seq <- rev(seq)
+      next_bot_time_seq <- seq
+    }
+  }
+}
+```
+
+```{r}
+for (file in data_files) {
+  data <- readRDS(file)
+  
+  cat("File:", file, "\n")
+  
+  cat("BotTimeSeq (Head):\n")
+  print(head(data$BotTimeSeq))
+  
+  cat("BotTimeSeq (Tail):\n")
+  print(tail(data$BotTimeSeq))
+  
+  cat("TopTimeSeq (Head):\n")
+  print(head(data$TopTimeSeq))
+  
+  cat("TopTimeSeq (Tail):\n")
+  print(tail(data$TopTimeSeq))
+  
+  cat("\n------------------------\n")
+}
+```
+
+### NAUGHTY CODE THAT DID NOT WORK >:( -----------------------------------------
+
+```{r}
+for(i in 1:length(files)){
+  print(i)
+  tt <- readRDS(files[i])
+  data <- readRDS(data_files[i])
+  
+  if (is.null(data$TopTraceMatrix)) {
+    next
+  }
+
+  top_data <- data$TopTraceMatrix
+  hours <- as.numeric(format(as.POSIXct(tt[[2]]$actual_time, format="%H:%M"), "%H"))
+  time_data <- data.frame(x_vals = tt[[2]]$median_X, hours)
+
+  top_time_seq <- c()
+  start_time_x <- data$TopTraceStartEnds$Start + 125
+  end_time_x <- time_data$x_vals[1]
+  length_start <- length(seq(from = start_time_x, to = end_time_x))
+  step_val <- round(1 / length_start, 6)
+  seq <- seq(from = hours[1], by = -step_val)
+  seq <- seq[1:length_start]
+  seq <- rev(seq)
+  top_time_seq <- seq
+
+  for (j in 1:(length(hours) - 1)) {
+    if (j + 1 > length(hours)) next
+    
+    start_time_j <- hours[j]
+    end_time_j <- hours[j + 1]
+    start_time_x <- time_data$x_vals[j]
+    end_time_x <- time_data$x_vals[j + 1]
+    data_sequence <- seq(from = start_time_x, to = end_time_x)
+    step_val <- round(1 / length(data_sequence), 6)
+    
+    if (start_time_j > end_time_j) {
+      seq_part1 <- seq(from = start_time_j, to = 24, by = step_val)
+      seq_part2 <- seq(from = 0, to = end_time_j, by = step_val)
+      time_data_seq <- c(seq_part1, seq_part2)
+    } else {
+      time_data_seq <- seq(from = start_time_j, to = end_time_j, by = step_val)
+    }
+    
+    last_val <- length(time_data_seq)
+    time_data_seq[last_val] <- round(tail(time_data_seq, 1))
+    
+    top_time_seq <- c(top_time_seq, time_data_seq)
+  }
+  
+  start_time_x <- tail(time_data$x_vals, 1)
+  end_time_x <- data$TopTraceStartEnds$End + 125
+  length_end <- length(seq(from = start_time_x, to = end_time_x))
+  step_val <- round(1 / length_end, 6)
+  last_hour <- tail(hours, 1)
+  
+  seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+  seq <- seq[1:length_end]
+
+  top_time_seq <- c(top_time_seq, seq)
+  top_time_seq <- unique(top_time_seq)
+  top_time_seq <- top_time_seq[1:length(data$TopTraceMatrix)]
+  
+  # Save last time for next iteration
+  last_time <- tail(top_time_seq, 1)
+
+  data$TopTimeSeq <- top_time_seq
+  data$tt <- tt
+  saveRDS(data, data_files[i])
+}
+
+
+## -----------------------------------------------------------------------------
+# FOR BOT TIME
+for(i in 1:length(files)){
+  print(i)
+  # Read the data
+  tt <- readRDS(files[i])
+  data <- readRDS(data_files[i])
+  
+  if (is.null(data$BottomTraceMatrix)) {
+    next
+  }
+  # Pull out top trace and hours
+  bot_data <- data$BottomTraceMatrix
+  hours <- as.numeric(format(as.POSIXct(tt[[1]]$actual_time, format="%H:%M"), "%H"))
+  # Build dataframe for ease of reading
+  time_data <- data.frame(x_vals = tt[[1]]$median_X, hours)
+
+  # Initialize a time vector
+  bot_time_seq <- c()
+  
+  # Beginning of time
+  start_time_x <- data$BottomTraceStartEnds$Start + 125 # Start of the sequence
+  end_time_x <- time_data$x_vals[1] # End of the sequence
+  length_start <- length(seq(from = start_time_x, to = end_time_x))
+  step_val <- round(1 / length_start, 6)
+  seq <- seq(from = hours[1], by = -step_val)
+  seq <- seq[1:length_start]
+  seq <- rev(seq)
+  # The start of the sequence
+  bot_time_seq <- seq
+  
+  # Loop through the middle hours (ignoring the first and last elements)
+  for (j in 1:(length(hours) - 1)) {
+    # Skip if j + 1 exceeds the length of hours
+    if (j + 1 > length(hours)) next
+    
+    # Define start and end times for the current segment
+    start_time_j <- hours[j]
+    end_time_j <- hours[j + 1]
+    # Define corresponding x values
+    start_time_x <- time_data$x_vals[j]
+    end_time_x <- time_data$x_vals[j + 1]
+    # Generate the sequence for the x values
+    data_sequence <- seq(from = start_time_x, to = end_time_x)
+    # Calculate the step value
+    step_val <- round(1 / length(data_sequence), 6)  # Step size in terms of time
+    # Going from hour 23 to 0
+    if (start_time_j > end_time_j) {
+      # Split the sequence into two parts: from start_time_j to 24, and from 0 to end_time_j
+      seq_part1 <- seq(from = start_time_j, to = 24, by = step_val)
+      seq_part2 <- seq(from = 0, to = end_time_j, by = step_val)
+      # Combine the two parts
+      time_data_seq <- c(seq_part1, seq_part2)
+    } else {
+      # Normal case: no midnight crossing
+      time_data_seq <- seq(from = start_time_j, to = end_time_j, by = step_val)
+    }
+    
+    last_val <- length(time_data_seq)
+    time_data_seq[last_val] <- round(tail(time_data_seq, 1))
+    
+    # Appending the bot_time_seq
+    bot_time_seq <- c(bot_time_seq, time_data_seq)
+  }
+  
+  # End of time
+  start_time_x <- tail(time_data$x_vals, 1) # Start of the sequence
+  end_time_x <- data$BottomTraceStartEnds$End + 125 # End of the sequence
+  length_end <- length(seq(from = start_time_x, to = end_time_x))
+  step_val <- round(1 / length_end, 6)
+  last_hour <- tail(hours, 1)
+  seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+  seq <- seq[1:length_end]
+  # Slapping sequence onto end of the time vector
+  bot_time_seq <- c(bot_time_seq, seq)
+  bot_time_seq <- unique(bot_time_seq)
+  # Subset to take the correct length of time.
+  bot_time_seq <- bot_time_seq[1:length(data$BottomTraceMatrix)]
+
+  # Saving stuff to DATA
+  data$BotTimeSeq <- bot_time_seq
+  data$tt <- tt
+  saveRDS(data, data_files[i])
+}
+
+for (i in 1:length(files)) {
+  # Read the data
+  data <- readRDS(data_files[i])
+  
+  # Flag to check if data needs to be saved
+  save_data <- FALSE
+  
+  # Check and remove BotTimeSeq if BottomTraceMatrix is NULL
+  if (!is.null(data$BotTimeSeq) && is.null(data$BottomTraceMatrix)) {
+    data$BotTimeSeq <- NULL
+    save_data <- TRUE
+  }
+  
+  # Check and remove TopTimeSeq if TopTraceMatrix is NULL
+  if (!is.null(data$TopTimeSeq) && is.null(data$TopTraceMatrix)) {
+    data$TopTimeSeq <- NULL
+    save_data <- TRUE
+  }
+  
+  # Save the data if any changes were made
+  if (save_data) {
+    saveRDS(data, data_files[i])
+  }
+}
+```
+
+
+### FOR BOT TO TOP ADJUSTMENT BECAUSE I WAS STUPID AND DID NOT DO IT PROPERLY IN CODE ABOVE
+
+```{r}
+### ADJUST ALL BOT TO TOP TIMES FIRST ------------------------------------------
+
+for(i in 1:length(files)){
+  # Read the data
+  tt <- readRDS(files[i])
+  data <- readRDS(data_files[i])
+  print(i)
+  
+  if(is.null(data$BottomTraceMatrix)) next
+  if(is.null(data$TopTimeSeq)) next
+  
+  if(!is.null(data$TopTraceMatrix)){
+    bot_time_seq <- NULL
+    top_time_seq <- NULL
+    
+    # GETTING TOP TIME
+    top_data <- data$TopTraceMatrix 
+    top_hours <- as.numeric(format(as.POSIXct(tt[[2]]$actual_time, format="%H:%M"), "%H"))
+    top_time_data <- data.frame(x_vals = tt[[2]]$median_X, top_hours)
+    # GETTING BOT TIME
+    bot_hours <- as.numeric(format(as.POSIXct(tt[[1]]$actual_time, format="%H:%M"), "%H"))
+    bot_time_data <- data.frame(x_vals = tt[[1]]$median_X, bot_hours)
+    
+    # BUILDING THE NEW 11TH HOURS SEQUENCE
+    # BOT STUFF
+    bot_time_seq <- data$BotTimeSeq
+    which_11 <- which(bot_time_seq == tail(bot_hours, 1))
+    len_end <- length(bot_time_seq[which_11:length(bot_time_seq)])
+    # TOP STUFF
+    top_time_seq <- data$TopTimeSeq
+    which_12 <- which(top_time_seq == head(top_hours, 1))
+    len_start <- length(top_time_seq[1:which_12])
+    # SEQUENCE BUILDING
+    len_seq <- len_end + len_start
+    start_time_x <- tail(bot_time_data$x_vals, 1) # Start of the sequence
+    end_time_x <- top_time_data$x_vals[1] + start_time_x # End of the sequence
+    step_val <- round(1 / len_seq, 6)
+    last_hour <- tail(bot_hours, 1)
+    seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+    
+    # NOW FINALLY REMOVING END DATA OF BOT AND REPLACE IT WITH CORRECT SEQUENCE
+    end_bot_seq <- seq[1:len_end] # ACTUAL END BOT SEQUENCE
+    rem_bot_time_seq <- bot_time_seq[1:which_11-1]
+    adj_bot_time_seq <- c(rem_bot_time_seq, end_bot_seq)
+    
+    # REMOVE START OF TOP DATA AND REPLACE IT WITH CORRECT SEQUENCE
+    start_top_seq <- seq[(len_end+2):length(seq)] # ACTUAL START TOP SEQUENCE
+    rem_top_time_seq <- top_time_seq[which_12:length(top_time_seq)]
+    adj_top_time_seq <- c(start_top_seq, rem_top_time_seq)
+  }
+  
+  
+  data$BotTimeSeq <- adj_bot_time_seq
+  data$TopTimeSeq <- adj_top_time_seq
+  saveRDS(data, data_files[i])
+}
+```
+
+### THIS CODE IS FOR TOP TRACE TO FOLLOWING RDS BOTTOM TRACE BECAUSE I AM STUPID ONCE AGAIN!!!!
+
+```{r}
+####### ADJUSTED TOP TIME ------------------------------------------------------
+
+for (i in 1:(length(files) - 1)) {
+  # Read the data
+  tt_1 <- readRDS(files[i])
+  tt_2 <- readRDS(files[i + 1])
+  data_1 <- readRDS(data_files[i])
+  data_2 <- readRDS(data_files[i + 1])
+  print(i)
+  
+  if (is.null(data_1$TopTraceMatrix)) {
+    print("MissingTopData")
+    next
+  }
+  if(is.null(data_1$BottomTraceMatrix)){
+    print("MissingBotData")
+    next
+  }
+  if(is.null(data_2$BottomTraceMatrix))
+  {
+    print("MissingBotData")
+    next
+  }
+  
+  if (!is.null(data_2$BottomTraceMatrix)) {
+    bot_time_seq <- NULL
+    top_time_seq <- NULL
+    
+    # GETTING TOP TIME
+    top_data <- data_1$TopTraceMatrix
+    top_hours <- as.numeric(format(as.POSIXct(tt_1[[2]]$actual_time, format = "%H:%M"), "%H"))
+    top_time_data <- data.frame(x_vals = tt_1[[2]]$median_X, top_hours)
+    
+    # GETTING BOT TIME
+    bot_hours <- as.numeric(format(as.POSIXct(tt_2[[1]]$actual_time, format = "%H:%M"), "%H"))
+    bot_time_data <- data.frame(x_vals = tt_2[[1]]$median_X, bot_hours)
+    
+    # BUILDING THE NEW 11TH HOURS SEQUENCE
+    # BOT STUFF
+    bot_time_seq <- data_2$BotTimeSeq
+    which_12 <- which(bot_time_seq == head(bot_hours, 1))
+    if (length(which_12) == 0) {
+      print("No matching hour found in bot_time_seq")
+      next
+    }
+    len_start <- length(bot_time_seq[1:which_12])
+    
+    # TOP STUFF
+    top_time_seq <- data_1$TopTimeSeq
+    which_11 <- which(top_time_seq == tail(top_hours, 1))
+    if (length(which_11) == 0) {
+      print("Error: which_11 is of length 0. Skipping to next iteration.")
+      next
+    }
+    len_end <- length(top_time_seq[which_11:length(top_time_seq)])
+    
+    # SEQUENCE BUILDING
+    len_seq <- len_end + len_start
+    if (len_seq <= 0) {
+      print("Invalid sequence length")
+      next
+    }
+    start_time_x <- tail(top_time_data$x_vals, 1) # Start of the sequence
+    end_time_x <- bot_time_data$x_vals[1] + start_time_x # End of the sequence
+    step_val <- round(1 / len_seq, 6)
+    last_hour <- tail(top_hours, 1)
+    seq <- seq(from = last_hour, to = last_hour + 1, by = step_val)
+    
+    # NOW FINALLY REMOVING END DATA OF TOP AND REPLACE IT WITH CORRECT SEQUENCE
+    end_top_seq <- seq[1:len_end] # ACTUAL END TOP SEQUENCE
+    rem_top_time_seq <- top_time_seq[1:(which_11 - 1)]
+    adj_top_time_seq <- c(rem_top_time_seq, end_top_seq)
+    
+    # REMOVE START OF BOT DATA AND REPLACE IT WITH CORRECT SEQUENCE
+    start_bot_seq <- seq[(len_end + 2):length(seq)] # ACTUAL START BOT SEQUENCE
+    rem_bot_time_seq <- bot_time_seq[which_12:length(bot_time_seq)]
+    adj_bot_time_seq <- c(start_bot_seq, rem_bot_time_seq)
+  }
+  
+  # Update data objects
+  data_2$BotTimeSeq <- adj_bot_time_seq
+  data_1$TopTimeSeq <- adj_top_time_seq
+  
+  # Save updated data (optional)
+  saveRDS(data_1, data_files[i])
+  saveRDS(data_2, data_files[i + 1])
+}
+
+```

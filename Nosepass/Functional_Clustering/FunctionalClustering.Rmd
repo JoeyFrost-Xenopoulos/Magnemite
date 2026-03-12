@@ -1,0 +1,416 @@
+---
+title: "FunctionalClustering"
+author: "Joey Frost-Xenopoulos - 0730136"
+date: "2025-03-06"
+output: html_document
+---
+
+```{r}
+server_dir <- normalizePath(
+  Sys.getenv("MAGNETO_SERVER_DIR", unset = "D:/SERVER/1902"),
+  winslash = "/",
+  mustWork = FALSE
+)
+output_dir <- normalizePath(
+  Sys.getenv("MAGNETO_OUTPUT_DIR", unset = file.path(getwd(), "output")),
+  winslash = "/",
+  mustWork = FALSE
+)
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+base_dir <- server_dir
+data_files <- list.files(base_dir, pattern = "\\.RDS$|\\.rds$", full.names = TRUE)
+names_data_files <- sub("\\.RDS$|\\.rds$", "", basename(data_files))
+names_data_files <- sub("\\.tif-(Digitized|FailToProcess)$", "", names_data_files)
+
+data_files <- data_files[!names_data_files %in% c("AGC-D-19020321-19020323", 
+                                                  "AGC-D-19020830-19020901", 
+                                                  "AGC-D-19021029-19021031", 
+                                                  "AGC-D-19021106-19021107")]
+
+names_data_files <- names_data_files[!names_data_files %in% c("AGC-D-19020321-19020323", 
+                                                  "AGC-D-19020830-19020901", 
+                                                  "AGC-D-19021029-19021031", 
+                                                  "AGC-D-19021106-19021107")]
+```
+
+# Midnight to Midnight code
+# ADJUSTS SO EVERYTHING IS CENTERED AROUND 638
+```{r}
+time_vec <- c()
+data_vec <- c()
+
+for(i in 1:length(data_files))
+{
+  data <- readRDS(data_files[i]) # Reading the RDS
+  
+  if(!is.null(data$BotTimeSeq)){
+    time_vec <- c(time_vec, data$BotTimeSeq)
+  }
+  
+  if(!is.null(data$TopTimeSeq)){
+    time_vec <- c(time_vec, data$TopTimeSeq)
+  }
+}
+
+for(i in 1:length(data_files))
+{
+  data <- readRDS(data_files[i])
+
+  if(i == 1){
+    data_vec <- c()
+    data_vec <- c(data_vec, data$BottomTraceMatrix)
+    final_val <- tail(data$BottomTraceMatrix, 1)
+    adj_val <- data$TopTraceMatrix[1] - final_val
+    new_First <- data$TopTraceMatrix - adj_val
+    data_vec <- c(data_vec, new_First)
+  }
+
+  if(i != 1){
+    if(!is.null(data$BotTimeSeq)){
+      adj_val <- data$BottomTraceMatrix[1] - 638
+      new_Bot <- data$BottomTraceMatrix - adj_val
+      data_vec <- c(data_vec, new_Bot)
+    }
+    
+    if(!is.null(data$TopTimeSeq)){
+      adj_val <- data$TopTraceMatrix[1] - 638
+      new_Top <- data$TopTraceMatrix - adj_val
+      data_vec <- c(data_vec, new_Top)
+    }
+  }
+}
+
+time_stops <- which(time_vec == 0)
+mid_mid <- list()
+source_vec <- c()
+
+oop <- na.omit(time_vec)
+time_stops <- which(oop == 0)
+
+
+for(i in 1:(length(time_stops) - 1)) {
+  
+  # Exclude the ending zero by adjusting the endpoint
+  time <- oop[time_stops[i]:(time_stops[i+1] - 1)]
+  data <- data_vec[time_stops[i]:(time_stops[i+1] - 1)]
+  mid_mid[[i]] <- data.frame(x = time, y = data)
+}
+
+mid_mid[[6]]$x <- sort(mid_mid[[6]]$x)
+mid_mid[[77]]$x <- sort(mid_mid[[77]]$x)
+mid_mid[[78]]$x <- sort(mid_mid[[78]]$x)
+
+
+mid_mid[[length(time_stops)]] <- data.frame(x = time, y = data)
+```
+
+```{r}
+library(splines)
+library(mixture)
+library(energy)
+library(tclust)
+
+knots <- seq(from = 0, to = 23, by = 1) # Defining the knots
+coef <- matrix(0, 350, 28) # Coef Matrix
+index <- 1 # For index of coef matrix
+
+for(i in 1:350)
+{
+  # print(i)
+  y <- mid_mid[[i]]$y
+  x <- sort(mid_mid[[i]]$x)
+  fit <- lm(y ~ bs((x), knots = knots, intercept = FALSE)) # Running bspline()
+  coef[index,] <- as.vector(fit$coefficients)
+  index <- index + 1 # Counting
+}
+
+nabool <- apply(coef,1,function(x)sum(is.na(x)))
+goodcoef <- coef[which(nabool==0),]
+
+clustres <- gpcm(goodcoef, G = 2:10) # Clustering, G number of groups
+table(clustres$best_model$map)
+```
+
+# AVERAGE CLUSTER
+
+```{r}
+library(tidyverse)
+library(mclust)
+library(dplyr)
+
+library(magneto)
+
+Mres <- Mclust(goodcoef, G = 8)
+
+x_grid <- seq(0, 24, length.out = 200)  # A smooth x-grid for plotting
+basis_full <- bs(x_grid, knots = knots)        # Full basis (no intercept column yet)
+interceptMat <- cbind(1, as.matrix(basis_full))  # Add intercept → 29 columns
+
+# Drop last two columns to match your clustering input
+interceptMat_trimmed <- interceptMat[, 1:27]
+mat <- Mres$parameters$mean
+funMeans <- interceptMat_trimmed %*% mat  # Mean curves for each cluster
+
+# Create dataframe for plotting
+plotdf <- data.frame(x = x_grid, funMeans)
+colnames(plotdf) <- c("x", paste0("Cluster ", 1:ncol(funMeans)))
+
+# Pivot longer for ggplot
+plotdf_long <- pivot_longer(plotdf, cols = -x, names_to = "Cluster", values_to = "y")
+
+# Plot using ggplot
+ggplot(plotdf_long, aes(x = x, y = y, color = Cluster)) +
+  geom_line(size = 1) +
+  labs(title = "Mean Functional Curves by Cluster",
+       x = "x", y = "Pixel Height") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),             # Remove all grid lines
+    axis.line = element_line(color = "black"),# Add axis lines
+    plot.title = element_text(hjust = 0.5)    # Center the title
+  )
+
+```
+
+
+```{r}
+# Get cluster assignments for each observation
+cluster_assignments <- Mres$classification
+
+# Identify which rows belong to Cluster 1
+cluster1_indices <- which(cluster_assignments == 4)
+
+# Compute functional curves for all Cluster 1 days
+cluster1_curves <- interceptMat_trimmed %*% t(goodcoef[cluster1_indices, ])
+
+# Create plotting dataframe for Cluster 1 days
+cluster1_df <- data.frame(x = x_grid, cluster1_curves)
+colnames(cluster1_df) <- c("x", paste0("Day_", cluster1_indices))
+
+# Pivot longer
+cluster1_long <- pivot_longer(cluster1_df, 
+                             cols = -x, 
+                             names_to = "Day", 
+                             values_to = "y")
+
+# Extract just Cluster 1 mean for plotting
+cluster1_mean <- plotdf_long %>% 
+  filter(Cluster == "Cluster 4")
+
+# Create the plot
+ggplot() +
+  # Individual days as semi-transparent lines
+  geom_line(data = cluster1_long, 
+            aes(x = x, y = y, group = Day), 
+            color = "#F08080", 
+            alpha = 0.3,
+            size = 0.5) +
+  # Mean curve as prominent line
+  geom_line(data = cluster1_mean, 
+            aes(x = x, y = y), 
+            color = "red", 
+            size = 1.5) +
+  labs(title = "Cluster 4: Mean Curve with Individual Days",
+       x = "Hour of Day", 
+       y = "Pixel Height") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+```{r}
+# Prepare data for all clusters
+full_plot_data <- map_dfr(1:8, function(cluster_num) {
+  cluster_indices <- which(cluster_assignments == cluster_num)
+  cluster_curves <- all_curves[, cluster_indices, drop = FALSE]
+  
+  # Individual curves
+  ind_df <- data.frame(
+    x = x_grid,
+    y = c(cluster_curves),
+    Day = rep(paste0("Day_", cluster_indices), each = length(x_grid)),
+    Cluster = paste("Cluster", cluster_num),
+    Type = "Individual"
+  )
+  
+  # Mean curve
+  mean_df <- data.frame(
+    x = x_grid,
+    y = plotdf_long %>% 
+        filter(Cluster == paste0("Cluster ", cluster_num)) %>% pull(y),
+    Day = "Mean",
+    Cluster = paste("Cluster", cluster_num),
+    Type = "Mean"
+  )
+  
+  bind_rows(ind_df, mean_df)
+})
+
+# Create faceted plot
+ggplot(full_plot_data, aes(x = x, y = y, group = Day, color = Type)) +
+  geom_line(data = filter(full_plot_data, Type == "Individual"),
+            alpha = 0.2,
+            size = 0.3) +
+  geom_line(data = filter(full_plot_data, Type == "Mean"),
+            size = 1.2) +
+  scale_color_manual(values = c("Individual" = "gray50", "Mean" = "red")) +
+  scale_y_continuous(limits = c(500, 700)) +
+  facet_wrap(~Cluster, ncol = 3) +
+  labs(x = "Hour of Day", y = "Pixel Height") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    strip.background = element_rect(fill = "gray90"),
+    legend.position = "bottom"
+  )
+```
+
+
+
+
+
+```{r, warning = FALSE}
+cluster_assignments <- clustres$best_model$map
+
+# Plotting each day's data with fitted functions
+for(i in 1:nrow(goodcoef)) {
+  
+  #if(i == 80 || i == 129 || i == 261 || i == 265){next}
+
+  plot((mid_mid[[i]]$x), mid_mid[[i]]$y, pch = 19, col = cluster_assignments[i],
+       main = paste("Day", i, "- Cluster", cluster_assignments[i]),
+       xlab = "Time", ylab = "Response", cex = 1, type = "p")
+  
+  fit <- lm(y ~ bs((x), knots = knots), data = mid_mid[[i]])
+  
+  xgrid <- seq(min(mid_mid[[i]]$x, na.rm = TRUE), 
+               max(mid_mid[[i]]$x, na.rm = TRUE), 
+               length.out = 400)
+  
+  points(xgrid, predict(fit, newdata = list(x = xgrid)),
+         col = "blue", lwd = 2, type = "l")
+  
+  # abline(v = knots, lty = 2, col = "blue")
+}
+
+```
+
+
+
+
+# PLOTTING ALL THE DATA
+
+```{r}
+library(dplyr)
+library(ggplot2)
+# Create a full year date sequence
+start_date <- as.Date("1902-01-01")
+end_date <- as.Date("1902-12-31")
+all_dates <- seq(start_date, end_date, by = "day")
+first_days_of_month <- all_dates[format(all_dates, "%d") == "01"]
+first_days_of_month[first_days_of_month == "1902-04-01"] <- as.Date("1902-04-02")
+first_days_of_month[first_days_of_month == "1902-05-01"] <- as.Date("1902-05-02")
+first_days_of_month[first_days_of_month == "1902-08-01"] <- as.Date("1902-08-02")
+first_days_of_month[first_days_of_month == "1902-11-01"] <- as.Date("1902-11-02")
+first_days_of_month[first_days_of_month == "1902-12-01"] <- as.Date("1902-12-02")
+
+# Initialize variables
+all_data <- data.frame(x = numeric(), y = numeric(), date = as.Date(character()))
+cumulative_x <- 0 
+day_tracker <- c()
+
+# For x labs
+month_tick <- data.frame(month = "January", x = 0)
+
+for(i in 1:length(data_files)) {
+  data <- readRDS(data_files[i])
+  day_1 <- as.Date(substr(data_files[i], 22, 29), format = "%Y%m%d")
+  day_2 <- as.Date(substr(data_files[i], 31, 47), format = "%Y%m%d")
+  
+  # Check if there's a day in between day_1 and day_2
+  if (as.numeric(difftime(day_2, day_1, units = "days")) > 1) {
+    # If there's a day in between, store the 3 days
+    day_in_between <- day_1 + 1  # The day in between (one day after day_1)
+    day_tracker <- c(day_tracker, format(day_1, "%Y-%m-%d"), format(day_in_between, "%Y-%m-%d"), format(day_2, "%Y-%m-%d"))
+  } else {
+    # If there's no day in between, store just the two days
+    day_tracker <- c(day_tracker, format(day_1, "%Y-%m-%d"), format(day_2, "%Y-%m-%d"))
+  }
+  
+  if(day_1 %in% first_days_of_month)
+  {
+    month_name <- format(day_1, "%B")
+    cat("The month is:", month_name, "\n")
+    # Append Month
+    month_tick <- rbind(month_tick, data.frame(month = month_name, x = cumulative_x))
+  }
+  
+  if(!is.null(data$BottomTraceMatrix)) {
+    adj_val <- data$BottomTraceMatrix[1] - 638
+    new_Bot <- data$BottomTraceMatrix - adj_val
+
+    all_data <- bind_rows(all_data, data.frame(
+      x = cumulative_x + seq_along(data$BotTimeSeq),
+      y = new_Bot,
+      date = day_1)
+    )
+    cumulative_x <- max(all_data$x)
+  }
+
+  if(!is.null(data$TopTraceMatrix)) {
+    adj_val <- data$TopTraceMatrix[1] - 638
+    new_Top <- data$TopTraceMatrix - adj_val
+
+    all_data <- bind_rows(all_data, data.frame(
+      x = cumulative_x + seq_along(data$TopTimeSeq),
+      y = new_Top,
+      date = day_2)
+    )
+    cumulative_x <- max(all_data$x)
+  }
+}
+
+# Ensure unique_days is in Date format
+unique_days <- as.Date(unique(unique_days))
+all_dates <- all_dates[-1]
+all_data$Date <- as.Date(all_data$date, format = "%Y-%m-%d")
+last_index <- max(which(all_data$date == as.Date("1902-11-10")))
+# Create NA rows
+na_rows <- as.data.frame(matrix(NA, nrow = 25000, ncol = ncol(all_data)))
+colnames(na_rows) <- colnames(all_data)
+
+# Fill 'x' column in na_rows with properly spaced dates
+na_rows$x <- seq(all_data$x[last_index] + 1, 
+                 by = diff(all_data$x[1:2]), 
+                 length.out = 25000)
+adj_data <- rbind(all_data[1:last_index, ], na_rows, all_data[(last_index + 1):nrow(all_data), ])
+
+ggplot(adj_data, aes(x = x, y = y)) +
+  geom_line() +
+  scale_x_continuous(
+    breaks = month_tick$x,
+    labels = month_tick$month
+  ) +
+  labs(x = "Month", y = "Magnetic Variation", title = "1902 Magnetic Variation Data") +
+  theme_minimal(base_size = 14) +  # Base size scales text elements
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    panel.grid = element_blank(),  
+    axis.line = element_line(color = "black"),  
+    axis.ticks.x = element_line(color = "black"),  
+    plot.title = element_text(hjust = 0.5, size = 16),  # Larger title
+    axis.title = element_text(size = 12),  
+    axis.text = element_text(size = 10)  
+  )
+
+ggsave(file.path(output_dir, "trace_data_plot.png"), 
+       width = 10, height = 6, dpi = 300)
+
+```

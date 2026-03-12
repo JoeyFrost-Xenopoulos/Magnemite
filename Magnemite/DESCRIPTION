@@ -1,0 +1,23 @@
+Package: Magnemite
+Type: Package
+Title: Magnetogram Processing Utilities
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Joey", "Frost-Xenopoulos",
+      email = "joey@example.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: Utilities for preparing magnetogram image assets and index files
+    from historical data directories. Includes helpers for path configuration,
+    full-size image processing, thumbnail creation, and JSON index generation.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+  DBI,
+    jsonlite,
+  magick,
+  RSQLite,
+  shiny

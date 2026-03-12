@@ -1,6 +1,6 @@
 # Magnemite
 
-Magnemite is the package workspace for migrating reusable logic out of Nosepass scripts into testable, documented R functions.
+Workflows for historical magnetogram processing, manual curation, and time-series preparation. Provides reproducible path helpers, web asset and index generation, Shiny apps for clipping and timing tick correction, and reusable preprocessing and functional clustering utilities migrated from legacy analysis notebooks.
 
 ## Workflow Overview
 

@@ -6,7 +6,7 @@
 #' fallback rules.
 #'
 #' @return Normalized output root path.
-#' @export
+#' @noRd
 magnemite_default_output_root <- function() {
   normalizePath(
     Sys.getenv("MAGNEMITE_OUTPUT_DIR", unset = Sys.getenv("NOSEPASS_OUTPUT_DIR", unset = "D:/Magnemite_Out")),
@@ -21,7 +21,7 @@ magnemite_default_output_root <- function() {
 #' @param ... Path components relative to package root.
 #'
 #' @return Normalized file path, or `NA_character_` when not found.
-#' @export
+#' @noRd
 magnemite_find_package_file <- function(...) {
   relative_path <- file.path(...)
   candidate_paths <- character()
@@ -53,7 +53,7 @@ magnemite_find_package_file <- function(...) {
 #' project directory.
 #'
 #' @return Normalized project directory path.
-#' @export
+#' @noRd
 magnemite_default_clippng_project_dir <- function() {
   bundled_db <- magnemite_find_package_file("data", "magnet.db")
   if (!is.na(bundled_db)) {
@@ -71,7 +71,7 @@ magnemite_default_clippng_project_dir <- function() {
 #' @param project_dir Optional project directory used to build DB path.
 #'
 #' @return Normalized database file path.
-#' @export
+#' @noRd
 magnemite_default_clippng_db <- function(project_dir = NULL) {
   bundled_db <- magnemite_find_package_file("data", "magnet.db")
   if (!is.na(bundled_db)) {
@@ -95,7 +95,7 @@ magnemite_default_clippng_db <- function(project_dir = NULL) {
 #' @param output_dir Optional output directory override.
 #'
 #' @return A list with normalized clipping app path settings.
-#' @export
+#' @noRd
 magnemite_clippng_paths <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   resolved_project_dir <- if (!is.null(project_dir) && nzchar(project_dir)) {
     project_dir
@@ -146,7 +146,7 @@ magnemite_clippng_paths <- function(project_dir = NULL, db_path = NULL, output_d
 #' @param output_dir Optional output directory override.
 #'
 #' @return A Shiny app object.
-#' @export
+#' @noRd
 magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   app_paths <- magnemite_clippng_paths(project_dir = project_dir, db_path = db_path, output_dir = output_dir)
 
@@ -420,6 +420,153 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
   shiny::shinyApp(ui = ui, server = server)
 }
 
+#' Apply Clipped CSV to Digitized RDS
+#'
+#' Reads a clipped traces CSV produced by the clippng app and writes the
+#' corrected trace vectors and start/end coordinates back into the corresponding
+#' digitized RDS file.
+#'
+#' The clippng app stores coordinates with a +96 y-offset and +125 x-offset.
+#' This function reverses those offsets before writing back to the RDS and
+#' removes padded `NA` pairs from each trace.
+#'
+#' @param csv_path Path to the `_clipped_traces.csv` file from the clippng app.
+#' @param rds_path Path to the digitized `.rds` file to update.
+#'
+#' @return The updated RDS object (invisibly). The file at `rds_path` is
+#'   overwritten in place.
+#' @export
+apply_clipped_csv <- function(csv_path, rds_path) {
+  if (!file.exists(csv_path)) {
+    stop("CSV file not found: ", csv_path)
+  }
+  if (!file.exists(rds_path)) {
+    stop("RDS file not found: ", rds_path)
+  }
+
+  clips <- utils::read.csv(csv_path)
+  required_cols <- c("top_x", "top_y", "bottom_x", "bottom_y")
+  missing_cols <- setdiff(required_cols, names(clips))
+  if (length(missing_cols) > 0) {
+    stop("CSV is missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  rds <- readRDS(rds_path)
+
+  extract_trace <- function(x, y) {
+    keep <- !is.na(x) & !is.na(y)
+    list(
+      x = as.numeric(x[keep]) - 125,
+      y = as.numeric(y[keep]) - 96
+    )
+  }
+
+  top <- extract_trace(clips$top_x, clips$top_y)
+  bot <- extract_trace(clips$bottom_x, clips$bottom_y)
+
+  if (length(top$x) == 0 || length(bot$x) == 0) {
+    stop("CSV must contain at least one non-NA point for both top and bottom traces.")
+  }
+
+  rds$TopTraceMatrix <- top$y
+  rds$TopTraceStartEnds <- list(
+    Start = unname(top$x[1]),
+    End = unname(top$x[length(top$x)])
+  )
+  rds$BottomTraceMatrix <- bot$y
+  rds$BottomTraceStartEnds <- list(
+    Start = unname(bot$x[1]),
+    End = unname(bot$x[length(bot$x)])
+  )
+
+  saveRDS(rds, rds_path)
+  invisible(rds)
+}
+
+#' Batch Apply Clipped CSVs to Digitized RDS Files
+#'
+#' Scans a directory of `_clipped_traces.csv` files and applies each one to its
+#' matching digitized RDS file using `apply_clipped_csv()`. The lookup is
+#' recursive under `server_dir` and supports both `*.tif-Digitized.rds` and
+#' `*.tif-FailToProcess.rds` / `*.tif-FailToProcess-Data.rds` naming patterns.
+#'
+#' @param clipped_csv_dir Directory containing `_clipped_traces.csv` files.
+#'   Defaults to `D:/Magnemite_Out/data/clipped_traces`.
+#' @param server_dir Server root directory containing digitized RDS files.
+#'   Defaults to `MAGNEMITE_SERVER_DIR` env var or `D:/SERVER`.
+#'
+#' @return Character vector of updated RDS paths (invisibly).
+#' @export
+apply_clipped_csv_batch <- function(clipped_csv_dir = NULL, server_dir = NULL) {
+  if (is.null(clipped_csv_dir) || !nzchar(clipped_csv_dir)) {
+    clipped_csv_dir <- file.path(magnemite_default_output_root(), "data", "clipped_traces")
+  }
+  if (is.null(server_dir) || !nzchar(server_dir)) {
+    server_dir <- Sys.getenv("MAGNEMITE_SERVER_DIR", unset = Sys.getenv("NOSEPASS_SERVER_DIR", unset = "D:/SERVER"))
+  }
+
+  csv_files <- list.files(clipped_csv_dir, pattern = "_clipped_traces\\.csv$", full.names = TRUE, recursive = TRUE)
+  rds_files <- list.files(
+    server_dir,
+    pattern = "\\.tif-(Digitized|FailToProcess(-Data)?)\\.rds$",
+    full.names = TRUE,
+    recursive = TRUE,
+    ignore.case = TRUE
+  )
+
+  if (length(csv_files) == 0) {
+    message("No clipped trace CSV files found in: ", clipped_csv_dir)
+    return(invisible(character()))
+  }
+  if (length(rds_files) == 0) {
+    warning("No candidate digitized/fail RDS files found under: ", server_dir)
+    return(invisible(character()))
+  }
+
+  updated <- character()
+
+  rds_key <- function(path) {
+    sub(
+      "\\.tif-(Digitized|FailToProcess(-Data)?)\\.rds$",
+      "",
+      basename(path),
+      ignore.case = TRUE
+    )
+  }
+
+  choose_best_match <- function(paths) {
+    digitized <- paths[grepl("-Digitized\\.rds$", paths, ignore.case = TRUE)]
+    if (length(digitized) > 0) {
+      return(digitized[1])
+    }
+    paths[1]
+  }
+
+  rds_keys <- vapply(rds_files, rds_key, FUN.VALUE = character(1))
+
+  for (csv_path in csv_files) {
+    base <- sub("_clipped_traces\\.csv$", "", basename(csv_path))
+    matches <- rds_files[rds_keys == base]
+
+    if (length(matches) == 0) {
+      warning("No matching RDS for: ", basename(csv_path), " under ", server_dir)
+      next
+    }
+
+    rds_path <- choose_best_match(matches)
+
+    tryCatch({
+      apply_clipped_csv(csv_path, rds_path)
+      updated <- c(updated, rds_path)
+      message("Updated: ", basename(rds_path), " from ", basename(csv_path))
+    }, error = function(e) {
+      warning("Failed to apply ", basename(csv_path), ": ", e$message)
+    })
+  }
+
+  invisible(updated)
+}
+
 #' Run Clippng Shiny App
 #'
 #' Launches the clipping app.
@@ -430,7 +577,7 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
 #'
 #' @return The result of `shiny::runApp()`.
 #' @export
-run_magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
+clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   app <- magnemite_clippng_app(project_dir = project_dir, db_path = db_path, output_dir = output_dir)
   shiny::runApp(app)
 }

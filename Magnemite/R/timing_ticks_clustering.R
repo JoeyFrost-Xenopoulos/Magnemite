@@ -10,7 +10,7 @@
 #' @param column_range Integer vector of matrix columns to cluster.
 #'
 #' @return A list with `cluster_2` and `cluster_3` data frames.
-#' @export
+#' @noRd
 magnemite_process_trace_cluster <- function(tif_path, rds_path, column_range) {
   img <- magick::image_read(tif_path)
   if (magick::image_info(img)$width < magick::image_info(img)$height) {
@@ -73,7 +73,7 @@ magnemite_process_trace_cluster <- function(tif_path, rds_path, column_range) {
 #' @param rds_path Path to the digitized trace `.rds` file.
 #'
 #' @return A list with clustered bottom-trace data components.
-#' @export
+#' @noRd
 magnemite_process_bottom_trace_cluster <- function(tif_path, rds_path) {
   magnemite_process_trace_cluster(tif_path = tif_path, rds_path = rds_path, column_range = 1:250)
 }
@@ -86,7 +86,7 @@ magnemite_process_bottom_trace_cluster <- function(tif_path, rds_path) {
 #' @param rds_path Path to the digitized trace `.rds` file.
 #'
 #' @return A list with clustered top-trace data components.
-#' @export
+#' @noRd
 magnemite_process_top_trace_cluster <- function(tif_path, rds_path) {
   magnemite_process_trace_cluster(tif_path = tif_path, rds_path = rds_path, column_range = 250:500)
 }
@@ -101,7 +101,7 @@ magnemite_process_top_trace_cluster <- function(tif_path, rds_path) {
 #' @param region_width Width of the local window around each cluster minimum.
 #'
 #' @return A data frame with `Cluster` and `median_X`.
-#' @export
+#' @noRd
 magnemite_cluster_region_medians <- function(min_values_x, data, region_width = 40) {
   medians <- sapply(min_values_x$min_X, function(x) {
     subset_region <- data[data$X >= (x - region_width / 2) & data$X <= (x + region_width / 2), ]

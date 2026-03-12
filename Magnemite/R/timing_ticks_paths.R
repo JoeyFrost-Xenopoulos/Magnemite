@@ -10,12 +10,12 @@
 #' @param output_dir Optional output directory override.
 #'
 #' @return A list containing normalized timing tick path settings.
-#' @export
+#' @noRd
 magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   resolved_server_dir <- if (!is.null(server_dir) && nzchar(server_dir)) {
     server_dir
   } else {
-    Sys.getenv("MAGNEMITE_SERVER_DIR", unset = Sys.getenv("NOSEPASS_SERVER_DIR", unset = "D:/SERVER/1902"))
+    Sys.getenv("MAGNEMITE_SERVER_DIR", unset = Sys.getenv("NOSEPASS_SERVER_DIR", unset = "D:/SERVER"))
   }
 
   resolved_server_dir <- normalizePath(resolved_server_dir, winslash = "/", mustWork = FALSE)
@@ -23,7 +23,7 @@ magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = N
   resolved_timing_ticks_dir <- if (!is.null(timing_ticks_dir) && nzchar(timing_ticks_dir)) {
     timing_ticks_dir
   } else {
-    Sys.getenv("MAGNEMITE_TIMING_TICKS_DIR", unset = file.path(resolved_server_dir, "TimingTicks"))
+    Sys.getenv("MAGNEMITE_TIMING_TICKS_DIR", unset = file.path(magnemite_default_output_root(), "data", "timing_ticks"))
   }
 
   resolved_output_dir <- if (!is.null(output_dir) && nzchar(output_dir)) {
@@ -39,6 +39,19 @@ magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = N
   )
 }
 
+#' List Year Directories
+#'
+#' Lists immediate child directories with 4-digit names under a server root.
+#'
+#' @param server_dir Server root directory that contains year folders.
+#'
+#' @return Character vector of year directory paths.
+#' @noRd
+magnemite_list_year_dirs <- function(server_dir) {
+  dirs <- list.dirs(server_dir, recursive = FALSE, full.names = TRUE)
+  dirs[grepl("^[0-9]{4}$", basename(dirs))]
+}
+
 #' List TIF Files
 #'
 #' Lists `.tif` files from a server directory.
@@ -46,7 +59,7 @@ magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = N
 #' @param server_dir Directory containing source image files.
 #'
 #' @return Character vector of `.tif` file paths.
-#' @export
+#' @noRd
 magnemite_list_tif_files <- function(server_dir) {
   list.files(server_dir, pattern = "\\.tif$", full.names = TRUE)
 }
@@ -60,7 +73,7 @@ magnemite_list_tif_files <- function(server_dir) {
 #' @param server_dir Server directory to search.
 #'
 #' @return Normalized RDS path, or `NA_character_` when not found.
-#' @export
+#' @noRd
 magnemite_find_digitized_rds <- function(tif_path, server_dir) {
   base_name <- tools::file_path_sans_ext(basename(tif_path))
   candidate_paths <- c(
@@ -86,7 +99,7 @@ magnemite_find_digitized_rds <- function(tif_path, server_dir) {
 #' @param timing_ticks_dir Directory where timing tick RDS files are stored.
 #'
 #' @return Normalized timing tick RDS path.
-#' @export
+#' @noRd
 magnemite_timing_tick_rds_path <- function(tif_path, timing_ticks_dir) {
   base_name <- tools::file_path_sans_ext(basename(tif_path))
   normalizePath(file.path(timing_ticks_dir, paste0(base_name, ".rds")), winslash = "/", mustWork = FALSE)

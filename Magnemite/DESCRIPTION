@@ -1,4 +1,4 @@
-Package: Magnemite
+Package: magnemite
 Type: Package
 Title: Magnetogram Curation and Clustering Workflows
 Version: 0.1.0

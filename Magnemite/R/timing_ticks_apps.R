@@ -10,7 +10,7 @@
 #' @param output_dir Optional output directory override.
 #'
 #' @return A Shiny app object.
-#' @export
+#' @noRd
 magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   app_paths <- magnemite_timing_ticks_paths(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir, output_dir = output_dir)
 
@@ -22,6 +22,7 @@ magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL,
     shiny::titlePanel("Cluster Processing App"),
     shiny::sidebarLayout(
       shiny::sidebarPanel(
+        shiny::selectInput("year_dir", "Select Year", choices = NULL),
         shiny::selectInput("tif_file", "Select .tif File", choices = NULL),
         shiny::actionButton("process", "Process Files"),
         shiny::actionButton("next_image", "Next Image"),
@@ -49,14 +50,47 @@ magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL,
     min_values_bot <- shiny::reactiveVal(NULL)
     min_values_top <- shiny::reactiveVal(NULL)
     current_index <- shiny::reactiveVal(1)
+    year_dirs <- shiny::reactive({
+      magnemite_list_year_dirs(app_paths$server_dir)
+    })
+
+    selected_data_dir <- shiny::reactive({
+      dirs <- year_dirs()
+      if (length(dirs) == 0) {
+        app_paths$server_dir
+      } else {
+        shiny::req(input$year_dir)
+        input$year_dir
+      }
+    })
+
     tif_files <- shiny::reactive({
-      magnemite_list_tif_files(app_paths$server_dir)
+      magnemite_list_tif_files(selected_data_dir())
     })
 
     done_pressed_bot <- shiny::reactiveVal(FALSE)
     done_pressed_top <- shiny::reactiveVal(FALSE)
     combined_brushed_data_bot <- shiny::reactiveVal(data.frame(X = numeric(), Y = numeric()))
     combined_brushed_data_top <- shiny::reactiveVal(data.frame(X = numeric(), Y = numeric()))
+
+    shiny::observe({
+      dirs <- year_dirs()
+
+      if (length(dirs) == 0) {
+        shiny::updateSelectInput(session, "year_dir", choices = setNames(app_paths$server_dir, "Current Folder"), selected = app_paths$server_dir)
+      } else {
+        ordered_dirs <- dirs[order(basename(dirs))]
+        shiny::updateSelectInput(session, "year_dir", choices = stats::setNames(ordered_dirs, basename(ordered_dirs)), selected = ordered_dirs[1])
+      }
+    })
+
+    shiny::observeEvent(input$year_dir, {
+      current_index(1)
+      min_values_bot(NULL)
+      min_values_top(NULL)
+      results_bot(NULL)
+      results_top(NULL)
+    })
 
     shiny::observe({
       files <- tif_files()
@@ -272,7 +306,7 @@ magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL,
 #'
 #' @return The result of `shiny::runApp()`.
 #' @export
-run_magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
+brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   shiny::runApp(magnemite_brushclust_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir, output_dir = output_dir))
 }
 
@@ -285,7 +319,7 @@ run_magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = N
 #' @param timing_ticks_dir Optional timing tick RDS directory override.
 #'
 #' @return A Shiny app object.
-#' @export
+#' @noRd
 magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   app_paths <- magnemite_timing_ticks_paths(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir)
 
@@ -425,6 +459,6 @@ magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir 
 #'
 #' @return The result of `shiny::runApp()`.
 #' @export
-run_magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
+tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   shiny::runApp(magnemite_timing_tick_click_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir))
 }

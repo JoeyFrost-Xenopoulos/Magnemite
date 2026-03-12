@@ -10,7 +10,7 @@
 #' @param output_dir Optional output directory override.
 #'
 #' @return A list of normalized path settings.
-#' @export
+#' @noRd
 magnemite_functional_paths <- function(server_dir = NULL, attempts_dir = NULL, output_dir = NULL) {
   resolved_server_dir <- if (!is.null(server_dir) && nzchar(server_dir)) {
     server_dir
@@ -48,7 +48,7 @@ magnemite_functional_paths <- function(server_dir = NULL, attempts_dir = NULL, o
 #'
 #' @return Character vector of RDS file paths.
 #' @export
-magnemite_list_trace_rds_files <- function(server_dir, exclude_base_names = character()) {
+list_tick_rds <- function(server_dir, exclude_base_names = character()) {
   data_files <- list.files(server_dir, pattern = "\\.RDS$|\\.rds$", full.names = TRUE)
 
   base_names <- sub("\\.RDS$|\\.rds$", "", basename(data_files))
@@ -67,7 +67,7 @@ magnemite_list_trace_rds_files <- function(server_dir, exclude_base_names = char
 #'
 #' @return Updated timing tick object.
 #' @export
-magnemite_assign_actual_times <- function(tt, min_length = 25) {
+assign_times <- function(tt, min_length = 25) {
   if (is.null(tt[[1]]) && is.null(tt[[2]])) {
     return(tt)
   }
@@ -110,7 +110,7 @@ magnemite_assign_actual_times <- function(tt, min_length = 25) {
 #'
 #' @return Character vector of written output file paths (invisibly).
 #' @export
-magnemite_assign_actual_times_batch <- function(
+assign_times_batch <- function(
   input_dir,
   output_dir,
   include_files = NULL,
@@ -134,7 +134,7 @@ magnemite_assign_actual_times_batch <- function(
       next
     }
 
-    updated <- magnemite_assign_actual_times(tt)
+    updated <- assign_times(tt)
     out_path <- file.path(output_dir, file)
     saveRDS(updated, out_path)
     written <- c(written, out_path)
@@ -155,7 +155,7 @@ magnemite_assign_actual_times_batch <- function(
 #'
 #' @return Updated timing tick object.
 #' @export
-magnemite_adjust_actual_times <- function(tt, trace = c("top", "bot", "both"), direction = c("<-", "->"), amount = 1) {
+adjust_times <- function(tt, trace = c("top", "bot", "both"), direction = c("<-", "->"), amount = 1) {
   trace <- match.arg(trace)
   direction <- match.arg(direction)
 
@@ -193,7 +193,7 @@ magnemite_adjust_actual_times <- function(tt, trace = c("top", "bot", "both"), d
 #'
 #' @return `TRUE`, invisibly.
 #' @export
-magnemite_apply_time_adjustments <- function(rds_files, adjustments) {
+apply_adjustments <- function(rds_files, adjustments) {
   for (date_key in names(adjustments)) {
     matched_file <- rds_files[sapply(rds_files, function(file) {
       match <- regmatches(file, regexpr("D-\\d{8}", file))
@@ -215,7 +215,7 @@ magnemite_apply_time_adjustments <- function(rds_files, adjustments) {
     amount <- as.numeric(substr(adj[["direction"]], 4, 4))
     trace <- adj[["trace"]]
 
-    tt <- magnemite_adjust_actual_times(tt, trace = trace, direction = direction, amount = amount)
+    tt <- adjust_times(tt, trace = trace, direction = direction, amount = amount)
     saveRDS(tt, matched_file[1])
   }
 
@@ -231,7 +231,7 @@ magnemite_apply_time_adjustments <- function(rds_files, adjustments) {
 #'
 #' @return A list of data frames with `x` and `y` columns.
 #' @export
-magnemite_build_midnight_curves <- function(data_files, center_value = 638) {
+midnight_curves <- function(data_files, center_value = 638) {
   time_vec <- c()
   data_vec <- c()
 

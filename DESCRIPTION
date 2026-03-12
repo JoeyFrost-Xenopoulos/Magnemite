@@ -1,0 +1,30 @@
+Package: magnemite
+Type: Package
+Title: Magnetogram Curation and Clustering Workflows
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Joey", "Frost-Xenopoulos",
+      email = "joey@example.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: Workflows for historical magnetogram processing,
+  manual curation, and time-series preparation. Provides reproducible path
+  helpers, web asset and index generation, Shiny apps for clipping and timing
+  tick correction, and reusable preprocessing and functional clustering
+  utilities migrated from legacy analysis notebooks.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+  DBI,
+  dplyr,
+  ggplot2,
+  jsonlite,
+  magick,
+  raster,
+  RSQLite,
+  reshape2,
+  shiny
+RoxygenNote: 7.3.3

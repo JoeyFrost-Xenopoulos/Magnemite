@@ -1,5 +1,16 @@
 # Website asset image processing functions.
 
+#' Process Full-Size Magnetogram Images
+#'
+#' Reads source PNG files from year folders, rotates portrait images when needed,
+#' and writes normalized full-size outputs.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Character vector of processed output file paths (invisibly).
+#' @export
 magnemite_process_fullsize_images <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir
@@ -49,6 +60,17 @@ magnemite_process_fullsize_images <- function(output_dir = NULL, server_dir = NU
   invisible(processed)
 }
 
+#' Process Thumbnail Magnetogram Images
+#'
+#' Creates one representative thumbnail image per year by resizing the first
+#' valid PNG discovered in each year directory.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Character vector of processed thumbnail file paths (invisibly).
+#' @export
 magnemite_process_thumbnail_images <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir

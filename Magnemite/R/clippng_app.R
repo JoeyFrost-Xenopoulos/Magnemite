@@ -1,5 +1,12 @@
 # Clippng Shiny app package integration.
 
+#' Resolve Default Output Root
+#'
+#' Returns the normalized package-wide output root directory using environment
+#' fallback rules.
+#'
+#' @return Normalized output root path.
+#' @export
 magnemite_default_output_root <- function() {
   normalizePath(
     Sys.getenv("MAGNEMITE_OUTPUT_DIR", unset = Sys.getenv("NOSEPASS_OUTPUT_DIR", unset = "D:/Magnemite_Out")),
@@ -7,6 +14,14 @@ magnemite_default_output_root <- function() {
   )
 }
 
+#' Find a Bundled Package File
+#'
+#' Searches installed and development package locations for a relative file path.
+#'
+#' @param ... Path components relative to package root.
+#'
+#' @return Normalized file path, or `NA_character_` when not found.
+#' @export
 magnemite_find_package_file <- function(...) {
   relative_path <- file.path(...)
   candidate_paths <- character()
@@ -32,6 +47,13 @@ magnemite_find_package_file <- function(...) {
   normalizePath(existing_path, mustWork = FALSE)
 }
 
+#' Resolve Default Clippng Project Directory
+#'
+#' Uses bundled database location when available, otherwise returns a fallback
+#' project directory.
+#'
+#' @return Normalized project directory path.
+#' @export
 magnemite_default_clippng_project_dir <- function() {
   bundled_db <- magnemite_find_package_file("data", "magnet.db")
   if (!is.na(bundled_db)) {
@@ -41,6 +63,15 @@ magnemite_default_clippng_project_dir <- function() {
   normalizePath("D:/Nosepass/clippng", mustWork = FALSE)
 }
 
+#' Resolve Default Clippng Database Path
+#'
+#' Uses bundled package database when available, otherwise derives path from the
+#' project directory.
+#'
+#' @param project_dir Optional project directory used to build DB path.
+#'
+#' @return Normalized database file path.
+#' @export
 magnemite_default_clippng_db <- function(project_dir = NULL) {
   bundled_db <- magnemite_find_package_file("data", "magnet.db")
   if (!is.na(bundled_db)) {
@@ -54,6 +85,17 @@ magnemite_default_clippng_db <- function(project_dir = NULL) {
   normalizePath(file.path(project_dir, "data", "magnet.db"), mustWork = FALSE)
 }
 
+#' Resolve Clippng App Paths
+#'
+#' Resolves clipping app project, database, and output paths with explicit,
+#' environment, and package-default fallbacks.
+#'
+#' @param project_dir Optional project directory override.
+#' @param db_path Optional database path override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return A list with normalized clipping app path settings.
+#' @export
 magnemite_clippng_paths <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   resolved_project_dir <- if (!is.null(project_dir) && nzchar(project_dir)) {
     project_dir
@@ -94,6 +136,17 @@ magnemite_clippng_paths <- function(project_dir = NULL, db_path = NULL, output_d
   )
 }
 
+#' Build Clippng Shiny App
+#'
+#' Constructs the clipping Shiny app used to clip top and bottom trace segments
+#' and export clipped CSV files.
+#'
+#' @param project_dir Optional project directory override.
+#' @param db_path Optional database path override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return A Shiny app object.
+#' @export
 magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   app_paths <- magnemite_clippng_paths(project_dir = project_dir, db_path = db_path, output_dir = output_dir)
 
@@ -367,6 +420,16 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
   shiny::shinyApp(ui = ui, server = server)
 }
 
+#' Run Clippng Shiny App
+#'
+#' Launches the clipping app.
+#'
+#' @param project_dir Optional project directory override.
+#' @param db_path Optional database path override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return The result of `shiny::runApp()`.
+#' @export
 run_magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   app <- magnemite_clippng_app(project_dir = project_dir, db_path = db_path, output_dir = output_dir)
   shiny::runApp(app)

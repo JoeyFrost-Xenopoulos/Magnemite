@@ -1,5 +1,16 @@
 # Reusable timing tick clustering helpers.
 
+#' Process a Trace Cluster Region
+#'
+#' Runs k-means clustering on a selected image column range and extracts two
+#' viable trace clusters aligned to the digitized trace extent.
+#'
+#' @param tif_path Path to the source `.tif` image.
+#' @param rds_path Path to the digitized trace `.rds` file.
+#' @param column_range Integer vector of matrix columns to cluster.
+#'
+#' @return A list with `cluster_2` and `cluster_3` data frames.
+#' @export
 magnemite_process_trace_cluster <- function(tif_path, rds_path, column_range) {
   img <- magick::image_read(tif_path)
   if (magick::image_info(img)$width < magick::image_info(img)$height) {
@@ -54,14 +65,43 @@ magnemite_process_trace_cluster <- function(tif_path, rds_path, column_range) {
   list(cluster_2 = cluster_2, cluster_3 = cluster_3)
 }
 
+#' Process Bottom Trace Cluster
+#'
+#' Convenience wrapper to process the bottom trace region.
+#'
+#' @param tif_path Path to the source `.tif` image.
+#' @param rds_path Path to the digitized trace `.rds` file.
+#'
+#' @return A list with clustered bottom-trace data components.
+#' @export
 magnemite_process_bottom_trace_cluster <- function(tif_path, rds_path) {
   magnemite_process_trace_cluster(tif_path = tif_path, rds_path = rds_path, column_range = 1:250)
 }
 
+#' Process Top Trace Cluster
+#'
+#' Convenience wrapper to process the top trace region.
+#'
+#' @param tif_path Path to the source `.tif` image.
+#' @param rds_path Path to the digitized trace `.rds` file.
+#'
+#' @return A list with clustered top-trace data components.
+#' @export
 magnemite_process_top_trace_cluster <- function(tif_path, rds_path) {
   magnemite_process_trace_cluster(tif_path = tif_path, rds_path = rds_path, column_range = 250:500)
 }
 
+#' Compute Cluster Region Medians
+#'
+#' Computes median x positions for each cluster within a configurable local
+#' region around each cluster minimum x value.
+#'
+#' @param min_values_x Data frame containing `Cluster` and `min_X` columns.
+#' @param data Clustered data frame containing x values.
+#' @param region_width Width of the local window around each cluster minimum.
+#'
+#' @return A data frame with `Cluster` and `median_X`.
+#' @export
 magnemite_cluster_region_medians <- function(min_values_x, data, region_width = 40) {
   medians <- sapply(min_values_x$min_X, function(x) {
     subset_region <- data[data$X >= (x - region_width / 2) & data$X <= (x + region_width / 2), ]

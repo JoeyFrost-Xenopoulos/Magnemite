@@ -1,5 +1,16 @@
 # Website overlay and trace-export functions.
 
+#' Write RDS Overlay Images
+#'
+#' Renders top and bottom trace overlays from digitized RDS files onto
+#' transparent PNG canvases aligned with full-size web images.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Character vector of created overlay paths (invisibly).
+#' @export
 magnemite_write_rds_overlays <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir
@@ -65,6 +76,17 @@ magnemite_write_rds_overlays <- function(output_dir = NULL, server_dir = NULL, v
   invisible(created)
 }
 
+#' Copy RDS Trace Assets
+#'
+#' Copies trace RDS files from source directories into web asset output
+#' directories grouped by year.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Character vector of copied file paths (invisibly).
+#' @export
 magnemite_copy_rds_assets <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir
@@ -99,6 +121,17 @@ magnemite_copy_rds_assets <- function(output_dir = NULL, server_dir = NULL, verb
   invisible(copied)
 }
 
+#' Write Trace CSV Assets
+#'
+#' Converts top and bottom traces from digitized RDS files into CSV files for
+#' downstream web and analysis workflows.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Character vector of created CSV paths (invisibly).
+#' @export
 magnemite_write_trace_csv_assets <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir
@@ -172,6 +205,17 @@ magnemite_write_trace_csv_assets <- function(output_dir = NULL, server_dir = NUL
   invisible(created)
 }
 
+#' Build Complete Web Trace Assets
+#'
+#' Convenience pipeline that creates overlays, copies RDS files, and writes CSV
+#' exports in one call.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return A list with `overlays`, `copied_rds`, and `csvs` outputs (invisibly).
+#' @export
 magnemite_build_web_trace_assets <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   overlays <- magnemite_write_rds_overlays(output_dir = output_dir, server_dir = server_dir, verbose = verbose)
   copied <- magnemite_copy_rds_assets(output_dir = output_dir, server_dir = server_dir, verbose = verbose)

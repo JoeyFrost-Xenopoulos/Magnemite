@@ -1,5 +1,16 @@
 # Reusable functions migrated from Nosepass/Functional_Clustering notebooks.
 
+#' Resolve Functional Clustering Paths
+#'
+#' Resolves source, attempts, output, and timing tick paths used by functional
+#' clustering workflows.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param attempts_dir Optional attempts directory override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return A list of normalized path settings.
+#' @export
 magnemite_functional_paths <- function(server_dir = NULL, attempts_dir = NULL, output_dir = NULL) {
   resolved_server_dir <- if (!is.null(server_dir) && nzchar(server_dir)) {
     server_dir
@@ -27,6 +38,16 @@ magnemite_functional_paths <- function(server_dir = NULL, attempts_dir = NULL, o
   )
 }
 
+#' List Trace RDS Files
+#'
+#' Lists RDS trace files from a directory and optionally excludes specified base
+#' names.
+#'
+#' @param server_dir Directory containing trace RDS files.
+#' @param exclude_base_names Character vector of base names to exclude.
+#'
+#' @return Character vector of RDS file paths.
+#' @export
 magnemite_list_trace_rds_files <- function(server_dir, exclude_base_names = character()) {
   data_files <- list.files(server_dir, pattern = "\\.RDS$|\\.rds$", full.names = TRUE)
 
@@ -37,6 +58,15 @@ magnemite_list_trace_rds_files <- function(server_dir, exclude_base_names = char
   data_files[keep]
 }
 
+#' Assign Actual Times to Timing Ticks
+#'
+#' Adds hourly `actual_time` labels to top and/or bottom timing tick tables.
+#'
+#' @param tt Timing tick object with top/bottom tables.
+#' @param min_length Minimum sequence length used for time generation.
+#'
+#' @return Updated timing tick object.
+#' @export
 magnemite_assign_actual_times <- function(tt, min_length = 25) {
   if (is.null(tt[[1]]) && is.null(tt[[2]])) {
     return(tt)
@@ -68,6 +98,18 @@ magnemite_assign_actual_times <- function(tt, min_length = 25) {
   tt
 }
 
+#' Batch Assign Actual Times
+#'
+#' Reads timing tick RDS files, assigns actual times, and writes updated files
+#' to an output directory.
+#'
+#' @param input_dir Directory containing input timing tick RDS files.
+#' @param output_dir Directory for updated output files.
+#' @param include_files Optional explicit file list to process.
+#' @param exclude_files Character vector of file names to skip.
+#'
+#' @return Character vector of written output file paths (invisibly).
+#' @export
 magnemite_assign_actual_times_batch <- function(
   input_dir,
   output_dir,
@@ -101,6 +143,18 @@ magnemite_assign_actual_times_batch <- function(
   invisible(written)
 }
 
+#' Adjust Assigned Actual Times
+#'
+#' Shifts assigned `actual_time` values for top, bottom, or both traces by a
+#' specified direction and amount.
+#'
+#' @param tt Timing tick object.
+#' @param trace Which trace(s) to adjust: `"top"`, `"bot"`, or `"both"`.
+#' @param direction Shift direction: `"<-"` or `"->"`.
+#' @param amount Integer number of hours to shift.
+#'
+#' @return Updated timing tick object.
+#' @export
 magnemite_adjust_actual_times <- function(tt, trace = c("top", "bot", "both"), direction = c("<-", "->"), amount = 1) {
   trace <- match.arg(trace)
   direction <- match.arg(direction)
@@ -130,6 +184,15 @@ magnemite_adjust_actual_times <- function(tt, trace = c("top", "bot", "both"), d
   tt
 }
 
+#' Apply Date-Based Time Adjustments
+#'
+#' Applies manual date-keyed time adjustments to matching RDS files.
+#'
+#' @param rds_files Character vector of RDS file paths.
+#' @param adjustments Named list of adjustment definitions by date key.
+#'
+#' @return `TRUE`, invisibly.
+#' @export
 magnemite_apply_time_adjustments <- function(rds_files, adjustments) {
   for (date_key in names(adjustments)) {
     matched_file <- rds_files[sapply(rds_files, function(file) {
@@ -159,6 +222,15 @@ magnemite_apply_time_adjustments <- function(rds_files, adjustments) {
   invisible(TRUE)
 }
 
+#' Build Midnight Curves
+#'
+#' Builds midnight-segmented curve data from a sequence of trace RDS files.
+#'
+#' @param data_files Character vector of trace RDS file paths.
+#' @param center_value Centering value for post-first-file alignment.
+#'
+#' @return A list of data frames with `x` and `y` columns.
+#' @export
 magnemite_build_midnight_curves <- function(data_files, center_value = 638) {
   time_vec <- c()
   data_vec <- c()

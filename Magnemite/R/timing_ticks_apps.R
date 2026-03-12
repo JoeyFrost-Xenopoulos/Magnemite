@@ -1,5 +1,16 @@
 # Timing tick Shiny apps migrated from Nosepass.
 
+#' Build BrushClust Timing Tick App
+#'
+#' Constructs the BrushClust Shiny app for interactive clustering and timing
+#' tick median extraction.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return A Shiny app object.
+#' @export
 magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   app_paths <- magnemite_timing_ticks_paths(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir, output_dir = output_dir)
 
@@ -251,10 +262,30 @@ magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL,
   shiny::shinyApp(ui = ui, server = server)
 }
 
+#' Run BrushClust Timing Tick App
+#'
+#' Launches the BrushClust Shiny app.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return The result of `shiny::runApp()`.
+#' @export
 run_magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   shiny::runApp(magnemite_brushclust_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir, output_dir = output_dir))
 }
 
+#' Build Timing Tick Click Correction App
+#'
+#' Constructs the Shiny app used to manually inspect and adjust timing tick
+#' positions.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#'
+#' @return A Shiny app object.
+#' @export
 magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   app_paths <- magnemite_timing_ticks_paths(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir)
 
@@ -385,6 +416,15 @@ magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir 
   shiny::shinyApp(ui = ui, server = server)
 }
 
+#' Run Timing Tick Click Correction App
+#'
+#' Launches the timing tick click-correction app.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#'
+#' @return The result of `shiny::runApp()`.
+#' @export
 run_magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   shiny::runApp(magnemite_timing_tick_click_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir))
 }

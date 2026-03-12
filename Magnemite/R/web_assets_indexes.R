@@ -1,5 +1,16 @@
 # Website asset index generation functions.
 
+#' Write Master Image Indexes
+#'
+#' Writes per-year image indexes in source directories and a combined
+#' `master-index.json` in the output index directory.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Path to the written master index file (invisibly).
+#' @export
 magnemite_write_master_index <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir
@@ -37,6 +48,17 @@ magnemite_write_master_index <- function(output_dir = NULL, server_dir = NULL, v
   invisible(master_index_path)
 }
 
+#' Write RDS-to-Image Index
+#'
+#' Builds an index linking trace RDS files to corresponding image filenames,
+#' then writes the JSON index to the output directory.
+#'
+#' @param output_dir Optional output root override.
+#' @param server_dir Optional server source directory override.
+#' @param verbose Logical; print progress messages.
+#'
+#' @return Path to the written RDS index file (invisibly).
+#' @export
 magnemite_write_rds_index <- function(output_dir = NULL, server_dir = NULL, verbose = TRUE) {
   paths <- magnemite_paths(output_dir = output_dir, server_dir = server_dir)
   root_dir <- paths$server_dir

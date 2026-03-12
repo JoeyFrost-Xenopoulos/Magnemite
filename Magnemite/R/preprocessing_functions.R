@@ -1,5 +1,14 @@
 # Reusable functions migrated from Nosepass/pre_Processing notebooks.
 
+#' Resolve Preprocessing Paths
+#'
+#' Resolves source and timing tick directories used by preprocessing helpers.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#'
+#' @return A list with normalized server and timing tick directories.
+#' @export
 magnemite_preprocessing_paths <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   resolved_server_dir <- if (!is.null(server_dir) && nzchar(server_dir)) {
     server_dir
@@ -21,6 +30,19 @@ magnemite_preprocessing_paths <- function(server_dir = NULL, timing_ticks_dir = 
   )
 }
 
+#' Load a Trace Bundle
+#'
+#' Loads and validates a source image, digitized trace RDS, and timing tick RDS
+#' for a given base filename.
+#'
+#' @param base_name Base filename without extensions.
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#' @param rotate_if_vertical Logical; rotate image when height exceeds width.
+#'
+#' @return A list containing paths, loaded image object, digitized trace, and
+#'   timing tick data.
+#' @export
 magnemite_load_trace_bundle <- function(base_name, server_dir = NULL, timing_ticks_dir = NULL, rotate_if_vertical = TRUE) {
   paths <- magnemite_preprocessing_paths(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir)
 
@@ -59,6 +81,20 @@ magnemite_load_trace_bundle <- function(base_name, server_dir = NULL, timing_tic
   )
 }
 
+#' Cluster Trace Pixels with K-Means
+#'
+#' Extracts and clusters selected image matrix columns to identify top and
+#' bottom trace candidates constrained by digitized trace start/end bounds.
+#'
+#' @param tif_path Path to source `.tif` image.
+#' @param digitized_rds_path Path to digitized trace `.rds` file.
+#' @param column_range Integer vector of matrix columns to include.
+#' @param centers Number of k-means centers.
+#' @param scale_values Logical; whether to standardize pixel values.
+#' @param seed Optional random seed for deterministic clustering.
+#'
+#' @return A list of clustering outputs, including trace candidates.
+#' @export
 magnemite_kmeans_trace_clusters <- function(
   tif_path,
   digitized_rds_path,
@@ -142,6 +178,14 @@ magnemite_kmeans_trace_clusters <- function(
   )
 }
 
+#' Compute Median Trace Y by X
+#'
+#' Summarizes a trace data frame to median y values per x coordinate.
+#'
+#' @param trace_df Data frame containing at least `X` and `Y` columns.
+#'
+#' @return A data frame with columns `X` and `median_Y`.
+#' @export
 magnemite_trace_medians_by_x <- function(trace_df) {
   if (is.null(trace_df) || nrow(trace_df) == 0) {
     return(data.frame(X = numeric(0), median_Y = numeric(0)))
@@ -153,6 +197,17 @@ magnemite_trace_medians_by_x <- function(trace_df) {
     dplyr::arrange(X)
 }
 
+#' Plot Traces with Timing Ticks
+#'
+#' Plots the loaded image and overlays digitized top/bottom traces plus timing
+#' tick markers.
+#'
+#' @param bundle List returned by `magnemite_load_trace_bundle()`.
+#' @param tick_y_top Numeric length-2 y-range for top tick segments.
+#' @param tick_y_bottom Numeric length-2 y-range for bottom tick segments.
+#'
+#' @return `NULL`, invisibly.
+#' @export
 magnemite_plot_traces_with_ticks <- function(bundle, tick_y_top = c(300, 400), tick_y_bottom = c(100, 200)) {
   if (is.null(bundle$image) || is.null(bundle$img_rds) || is.null(bundle$timing_ticks)) {
     stop("bundle must come from magnemite_load_trace_bundle().")

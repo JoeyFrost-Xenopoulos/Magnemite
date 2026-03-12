@@ -2,71 +2,73 @@
 
 Magnemite is the package workspace for migrating reusable logic out of Nosepass scripts into testable, documented R functions.
 
-## Module Organization
+## Workflow Overview
 
-The package is now organized by functional area using file naming in `R/`:
+Magnemite is organized as a reproducible function pipeline:
 
-- `web_assets_*.R`: Website image/index/overlay asset workflows
-- `clippng_app.R`: Interactive clipping app integration
-- `timing_ticks_*.R`: Timing tick clustering and manual correction workflows
-- `preprocessing_functions.R`: Reusable image/trace preprocessing helpers from notebook code
-- `functional_clustering_functions.R`: Reusable time-assignment and midnight-curve helpers
+1. Resolve paths and defaults through package helpers (no hardcoded local paths required).
+2. Build or refresh web-facing image assets and indexes.
+3. Run clipping and timing tick apps for manual curation.
+4. Run preprocessing and functional clustering functions for analysis-ready outputs.
+5. Use script wrappers in `inst/scripts` only as temporary entrypoints while migrating legacy workflows.
 
-## Migrated in current state
+## Function Map
 
-From Nosepass website image scripts:
+### Path and default resolution
 
-- Image full-size processing
-  - `magnemite_process_fullsize_images()`
-- Image thumbnail processing
-  - `magnemite_process_thumbnail_images()`
-- Per-year and master image indexes
-  - `magnemite_write_master_index()`
-- RDS-to-image index JSON
-  - `magnemite_write_rds_index()`
-- Overlay and trace exports
-  - `magnemite_write_rds_overlays()`
-  - `magnemite_copy_rds_assets()`
-  - `magnemite_write_trace_csv_assets()`
-  - `magnemite_build_web_trace_assets()`
-- Shared web asset path helpers
-  - `magnemite_paths()`
-  - `magnemite_year_dirs()`
+- `magnemite_paths()`: Resolve server/output roots and derived web asset directories.
+- `magnemite_year_dirs()`: Detect year-named subdirectories under a root.
+- `magnemite_default_output_root()`: Resolve the package-wide output root.
+- `magnemite_find_package_file()`: Find bundled package files (installed or local dev tree).
+- `magnemite_default_clippng_project_dir()`: Resolve default clipping project directory.
+- `magnemite_default_clippng_db()`: Resolve default clipping database path.
+- `magnemite_clippng_paths()`: Resolve clipping app project/db/output paths.
+- `magnemite_timing_ticks_paths()`: Resolve timing tick source, tick RDS, and output directories.
+- `magnemite_preprocessing_paths()`: Resolve preprocessing source and timing tick directories.
+- `magnemite_functional_paths()`: Resolve functional clustering source, attempts, and output paths.
 
-From Nosepass clipping app:
+### Web asset generation
 
-- `magnemite_clippng_paths()`
-- `magnemite_clippng_app()`
-- `run_magnemite_clippng_app()`
+- `magnemite_process_fullsize_images()`: Normalize and export full-size magnetogram PNG assets by year.
+- `magnemite_process_thumbnail_images()`: Create representative per-year thumbnails.
+- `magnemite_write_master_index()`: Write year-level `index.json` and package `master-index.json`.
+- `magnemite_write_rds_index()`: Build JSON mapping of RDS trace files to corresponding images.
+- `magnemite_write_rds_overlays()`: Render transparent line overlays from digitized traces.
+- `magnemite_copy_rds_assets()`: Copy RDS trace files into output asset directories.
+- `magnemite_write_trace_csv_assets()`: Export top/bottom traces into CSV assets.
+- `magnemite_build_web_trace_assets()`: Run overlay, RDS copy, and CSV export as one pipeline.
 
-From Nosepass timing tick tools:
+### Clipping app
 
-- `magnemite_timing_ticks_paths()`
-- `magnemite_process_bottom_trace_cluster()`
-- `magnemite_process_top_trace_cluster()`
-- `magnemite_cluster_region_medians()`
-- `magnemite_brushclust_app()`
-- `run_magnemite_brushclust_app()`
-- `magnemite_timing_tick_click_app()`
-- `run_magnemite_timing_tick_click_app()`
+- `magnemite_clippng_app()`: Build the clipping Shiny app object.
+- `run_magnemite_clippng_app()`: Launch the clipping app.
 
-From Nosepass pre_Processing notebooks:
+### Timing tick workflow
 
-- `magnemite_preprocessing_paths()`
-- `magnemite_load_trace_bundle()`
-- `magnemite_kmeans_trace_clusters()`
-- `magnemite_trace_medians_by_x()`
-- `magnemite_plot_traces_with_ticks()`
+- `magnemite_list_tif_files()`: List source `.tif` files for timing tick workflows.
+- `magnemite_find_digitized_rds()`: Find matching digitized/failed RDS for a `.tif`.
+- `magnemite_timing_tick_rds_path()`: Build the timing tick output RDS path for an image.
+- `magnemite_process_trace_cluster()`: Run clustering on a trace region from image pixels.
+- `magnemite_process_bottom_trace_cluster()`: Bottom-trace clustering wrapper.
+- `magnemite_process_top_trace_cluster()`: Top-trace clustering wrapper.
+- `magnemite_cluster_region_medians()`: Compute median x-position per clustered region.
+- `magnemite_brushclust_app()`: Build the BrushClust app for timing tick brushing.
+- `run_magnemite_brushclust_app()`: Launch the BrushClust app.
+- `magnemite_timing_tick_click_app()`: Build manual click-correction app for timing ticks.
+- `run_magnemite_timing_tick_click_app()`: Launch manual click-correction app.
 
-From Nosepass Functional_Clustering notebooks:
+### Preprocessing and clustering helpers
 
-- `magnemite_functional_paths()`
-- `magnemite_list_trace_rds_files()`
-- `magnemite_assign_actual_times()`
-- `magnemite_assign_actual_times_batch()`
-- `magnemite_adjust_actual_times()`
-- `magnemite_apply_time_adjustments()`
-- `magnemite_build_midnight_curves()`
+- `magnemite_load_trace_bundle()`: Load image + digitized trace + timing tick bundle by base name.
+- `magnemite_kmeans_trace_clusters()`: Extract trace clusters from image matrix values with k-means.
+- `magnemite_trace_medians_by_x()`: Summarize trace y values by x median.
+- `magnemite_plot_traces_with_ticks()`: Plot image traces and timing tick markers together.
+- `magnemite_list_trace_rds_files()`: List and optionally filter trace RDS files.
+- `magnemite_assign_actual_times()`: Add hourly time labels to timing tick objects.
+- `magnemite_assign_actual_times_batch()`: Batch-assign actual times to timing tick RDS files.
+- `magnemite_adjust_actual_times()`: Shift assigned times by direction and amount.
+- `magnemite_apply_time_adjustments()`: Apply date-specific manual adjustments across files.
+- `magnemite_build_midnight_curves()`: Build midnight-aligned curve segments from trace files.
 
 ## Environment variables
 

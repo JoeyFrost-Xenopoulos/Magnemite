@@ -1,5 +1,16 @@
 # Shared path helpers for timing tick workflows.
 
+#' Resolve Timing Tick Paths
+#'
+#' Resolves source, timing tick, and output directories used by timing tick
+#' workflows, with environment-variable and default fallbacks.
+#'
+#' @param server_dir Optional server source directory override.
+#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#' @param output_dir Optional output directory override.
+#'
+#' @return A list containing normalized timing tick path settings.
+#' @export
 magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   resolved_server_dir <- if (!is.null(server_dir) && nzchar(server_dir)) {
     server_dir
@@ -28,10 +39,28 @@ magnemite_timing_ticks_paths <- function(server_dir = NULL, timing_ticks_dir = N
   )
 }
 
+#' List TIF Files
+#'
+#' Lists `.tif` files from a server directory.
+#'
+#' @param server_dir Directory containing source image files.
+#'
+#' @return Character vector of `.tif` file paths.
+#' @export
 magnemite_list_tif_files <- function(server_dir) {
   list.files(server_dir, pattern = "\\.tif$", full.names = TRUE)
 }
 
+#' Find Matching Digitized RDS
+#'
+#' Finds a digitized or fail-to-process RDS file that corresponds to a given
+#' `.tif` image path.
+#'
+#' @param tif_path Path to a `.tif` source image.
+#' @param server_dir Server directory to search.
+#'
+#' @return Normalized RDS path, or `NA_character_` when not found.
+#' @export
 magnemite_find_digitized_rds <- function(tif_path, server_dir) {
   base_name <- tools::file_path_sans_ext(basename(tif_path))
   candidate_paths <- c(
@@ -49,6 +78,15 @@ magnemite_find_digitized_rds <- function(tif_path, server_dir) {
   normalizePath(existing_path, winslash = "/", mustWork = FALSE)
 }
 
+#' Build Timing Tick RDS Path
+#'
+#' Builds the expected timing tick `.rds` output path for a source image.
+#'
+#' @param tif_path Path to a `.tif` source image.
+#' @param timing_ticks_dir Directory where timing tick RDS files are stored.
+#'
+#' @return Normalized timing tick RDS path.
+#' @export
 magnemite_timing_tick_rds_path <- function(tif_path, timing_ticks_dir) {
   base_name <- tools::file_path_sans_ext(basename(tif_path))
   normalizePath(file.path(timing_ticks_dir, paste0(base_name, ".rds")), winslash = "/", mustWork = FALSE)

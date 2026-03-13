@@ -9,21 +9,7 @@ The package workflow is:
 3. Generate first-pass timing ticks with clustering.
 4. Manually correct timing ticks.
 5. Assign and adjust clock times.
-6. Build midnight-segmented curves for downstream analysis.
-
-## Installation
-
-From a local checkout:
-
-```r
-install.packages(".", repos = NULL, type = "source")
-```
-
-For development work:
-
-```r
-devtools::load_all()
-```
+6. Build midnight-segmented curves.
 
 ## Quick Start
 

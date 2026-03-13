@@ -12,18 +12,31 @@ adjust_times(
 )
 }
 \arguments{
-\item{tt}{Timing tick object.}
+\item{tt}{Timing tick object produced by \code{\link[=assign_times]{assign_times()}} or read from a
+timing tick RDS file.}
 
-\item{trace}{Which trace(s) to adjust: `"top"`, `"bot"`, or `"both"`.}
+\item{trace}{Which trace(s) to adjust: \code{"top"}, \code{"bot"}, or \code{"both"}.}
 
-\item{direction}{Shift direction: `"<-"` or `"->"`.}
+\item{direction}{Shift direction: \code{"<-"} or \code{"->"}.}
 
 \item{amount}{Integer number of hours to shift.}
 }
 \value{
-Updated timing tick object.
+The updated timing tick object.
 }
 \description{
-Shifts assigned `actual_time` values for top, bottom, or both traces by a
+Shifts assigned \code{actual_time} values for top, bottom, or both traces by a
 specified direction and amount.
+}
+\details{
+The direction convention follows the legacy workflow. Choosing \code{"<-"}
+increases the underlying hour labels, while \code{"->"} decreases them. Values
+are wrapped modulo 24 so the result always stays in \code{HH:00} format.
+}
+\examples{
+tt <- list(
+  data.frame(actual_time = c("12:00", "13:00")),
+  data.frame(actual_time = c("14:00", "15:00"))
+)
+adjust_times(tt, trace = "both", direction = "<-", amount = 1)
 }

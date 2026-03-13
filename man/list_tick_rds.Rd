@@ -7,14 +7,33 @@
 list_tick_rds(server_dir, exclude_base_names = character())
 }
 \arguments{
-\item{server_dir}{Directory containing trace RDS files.}
+\item{server_dir}{Directory containing timing-trace RDS files.}
 
-\item{exclude_base_names}{Character vector of base names to exclude.}
+\item{exclude_base_names}{Character vector of normalized base names to
+exclude after suffix cleanup.}
 }
 \value{
-Character vector of RDS file paths.
+A character vector of matching RDS file paths.
 }
 \description{
-Lists RDS trace files from a directory and optionally excludes specified base
-names.
+List Timing-Trace RDS Files
+}
+\details{
+Lists timing-trace RDS files in a directory and optionally removes records
+whose normalized base names appear in an exclusion list.
+
+The matching key is the file name with the \code{.rds} or \code{.RDS} extension
+removed, followed by removal of \code{.tif-Digitized} or
+\code{.tif-FailToProcess}. This makes it easier to exclude files using the core
+magnetogram identifier rather than the exact on-disk suffix.
+}
+\examples{
+tmp <- tempdir()
+files <- c(
+  "AGC-D-19020101.tif-Digitized.rds",
+  "AGC-D-19020102.tif-FailToProcess.rds"
+)
+file.create(file.path(tmp, files))
+list_tick_rds(tmp)
+list_tick_rds(tmp, exclude_base_names = "AGC-D-19020102")
 }

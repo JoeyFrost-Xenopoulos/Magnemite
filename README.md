@@ -1,122 +1,120 @@
-# Magnemite
+# magnemite
 
-Magnemite is an R package for historical analog magnetogram timing tick processing:
+`magnemite` is an R package for historical analog magnetogram curation and timing-tick processing.
 
-1. Clip traces from digitized (.rds) files
-2. Write clipped traces back into RDS
-3. Detect timing ticks (BrushClust)
-4. Manually correct timing ticks (Click app)
-5. Convert timing ticks to clock times
+The package workflow is:
 
-## Core Pipeline
+1. Clip top and bottom traces from digitized records.
+2. Write clipped coordinates back to digitized RDS files.
+3. Generate first-pass timing ticks with clustering.
+4. Manually correct timing ticks.
+5. Assign and adjust clock times.
+6. Build midnight-segmented curves for downstream analysis.
 
-### 1) Clip traces
+## Installation
+
+From a local checkout:
 
 ```r
-Magnemite::clippng_app()
+install.packages(".", repos = NULL, type = "source")
 ```
 
-This app saves clipped CSV files to:
+For development work:
 
-- `D:/Magnemite_Out/data/clipped_traces` (default)
+```r
+devtools::load_all()
+```
 
-Each CSV contains:
+## Quick Start
+
+### 1. Clip traces
+
+Use the clipping app to set start/end bounds for top and bottom traces.
+
+```r
+magnemite::clippng_app()
+```
+
+Output CSV columns:
 
 - `top_x`, `top_y`
 - `bottom_x`, `bottom_y`
 
-### 2) Apply clipped CSVs back to digitized RDS
+### 2. Apply clipped CSV output to RDS
 
 Single file:
 
 ```r
-Magnemite::apply_clipped_csv(
-	csv_path = "D:/Magnemite_Out/data/clipped_traces/AGC-D-19020102-19020104.tif_clipped_traces.csv",
-	rds_path = "D:/SERVER/1902/AGC-D-19020102-19020104.tif-Digitized.rds"
+magnemite::apply_clipped_csv(
+  csv_path = "D:/Magnemite_Out/data/clipped_traces/AGC-D-19020102-19020104.tif_clipped_traces.csv",
+  rds_path = "D:/SERVER/1902/AGC-D-19020102-19020104.tif-Digitized.rds"
 )
 ```
 
 Batch mode:
 
 ```r
-Magnemite::apply_clipped_csv_batch(
-	clipped_csv_dir = "D:/Magnemite_Out/data/clipped_traces",
-	server_dir = "D:/SERVER"
+magnemite::apply_clipped_csv_batch(
+  clipped_csv_dir = "D:/Magnemite_Out/data/clipped_traces",
+  server_dir = "D:/SERVER"
 )
 ```
 
-`apply_clipped_csv_batch()` scans recursively and matches CSVs to either:
-
-- `*.tif-Digitized.rds`
-- `*.tif-FailToProcess.rds`
-- `*.tif-FailToProcess-Data.rds`
-
-### 3) Create first-pass timing ticks
+### 3. Create first-pass timing ticks
 
 ```r
-Magnemite::brushclust_app()
+magnemite::brushclust_app()
 ```
 
-BrushClust writes timing tick RDS files to:
-
-- `D:/Magnemite_Out/data/timing_ticks` (default)
-
-### 4) Manually correct timing ticks
+### 4. Manually correct timing ticks
 
 ```r
-Magnemite::tick_click_app()
+magnemite::tick_click_app()
 ```
 
-The click app reads/writes the same timing tick directory by default, so no extra path wiring is needed after BrushClust.
-
-### 5) Assign clock times
-
-Single object:
+### 5. Assign and adjust times
 
 ```r
 tt <- readRDS("D:/Magnemite_Out/data/timing_ticks/AGC-D-19020102-19020104.rds")
-tt <- Magnemite::assign_times(tt)
+tt <- magnemite::assign_times(tt)
+tt <- magnemite::adjust_times(tt, trace = "both", direction = "<-", amount = 1)
 saveRDS(tt, "D:/Magnemite_Out/data/Attempts/AGC-D-19020102-19020104.rds")
 ```
 
-Batch:
+Batch assignment:
 
 ```r
-Magnemite::assign_times_batch(
-	input_dir = "D:/Magnemite_Out/data/timing_ticks",
-	output_dir = "D:/Magnemite_Out/data/Attempts"
+magnemite::assign_times_batch(
+  input_dir = "D:/Magnemite_Out/data/timing_ticks",
+  output_dir = "D:/Magnemite_Out/data/Attempts"
 )
 ```
 
-Optional manual adjustments:
+### 6. Build midnight curves
 
 ```r
-rds_files <- list.files("D:/Magnemite_Out/data/Attempts", pattern = "\\.rds$", full.names = TRUE)
-
-Magnemite::apply_adjustments(
-	rds_files,
-	adjustments = list(
-		"19020102" = list(trace = "both", direction = "<- 1")
-	)
-)
+files <- magnemite::list_tick_rds("D:/Magnemite_Out/data/Attempts")
+curves <- magnemite::midnight_curves(files)
 ```
 
-### 6) Build midnight curves
-
-```r
-files <- Magnemite::list_tick_rds("D:/Magnemite_Out/data/Attempts")
-curves <- Magnemite::midnight_curves(files)
-```
-
-## Default Path Behavior
+## Path Defaults
 
 - Output root: `MAGNEMITE_OUTPUT_DIR` or `D:/Magnemite_Out`
 - Server root: `MAGNEMITE_SERVER_DIR` or `NOSEPASS_SERVER_DIR`, then `D:/SERVER`
-- Clipped CSV output: `<output_root>/data/clipped_traces`
-- Timing tick output/input: `<output_root>/data/timing_ticks`
-- Time-assigned output (recommended): `<output_root>/data/Attempts`
+- Clipped CSV directory: `<output_root>/data/clipped_traces`
+- Timing tick directory: `<output_root>/data/timing_ticks`
+- Recommended assigned-time directory: `<output_root>/data/Attempts`
 
-## Exported User Functions
+To make runs portable across machines:
+
+```r
+Sys.setenv(
+  MAGNEMITE_OUTPUT_DIR = "D:/Magnemite_Out",
+  MAGNEMITE_SERVER_DIR = "D:/SERVER"
+)
+```
+
+## Function Reference
 
 Apps:
 
@@ -129,7 +127,7 @@ Trace update:
 - `apply_clipped_csv()`
 - `apply_clipped_csv_batch()`
 
-Timing tick to time:
+Timing assignment:
 
 - `assign_times()`
 - `assign_times_batch()`
@@ -140,4 +138,12 @@ Downstream curves:
 
 - `list_tick_rds()`
 - `midnight_curves()`
+
+## Vignette
+
+For a fuller workflow walkthrough, see the package vignette:
+
+```r
+vignette("magnemite-workflow", package = "magnemite")
+```
 

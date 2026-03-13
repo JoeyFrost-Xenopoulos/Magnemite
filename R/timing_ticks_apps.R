@@ -300,11 +300,22 @@ magnemite_brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL,
 #'
 #' Launches the BrushClust Shiny app.
 #'
-#' @param server_dir Optional server source directory override.
-#' @param timing_ticks_dir Optional timing tick RDS directory override.
-#' @param output_dir Optional output directory override.
+#' This app loads source magnetogram images, clusters likely timing tick
+#' regions, and lets you brush candidate points before saving derived timing
+#' tick medians to an RDS file.
 #'
-#' @return The result of `shiny::runApp()`.
+#' @param server_dir Optional override for the server directory containing year
+#'   folders and source `.tif` files.
+#' @param timing_ticks_dir Optional override for the directory where timing tick
+#'   `.rds` files are read from and written to.
+#' @param output_dir Optional override for the directory used for temporary plot
+#'   outputs created by the app.
+#'
+#' @return The result of [shiny::runApp()]. This function is primarily used for
+#'   its side effect of launching an interactive application.
+#'
+#' @examplesIf interactive()
+#' brushclust_app()
 #' @export
 brushclust_app <- function(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL) {
   shiny::runApp(magnemite_brushclust_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir, output_dir = output_dir))
@@ -454,10 +465,20 @@ magnemite_timing_tick_click_app <- function(server_dir = NULL, timing_ticks_dir 
 #'
 #' Launches the timing tick click-correction app.
 #'
-#' @param server_dir Optional server source directory override.
-#' @param timing_ticks_dir Optional timing tick RDS directory override.
+#' This app displays the source image alongside previously saved timing tick
+#' medians and lets you add manual correction clicks that are written back to the
+#' corresponding timing tick RDS file.
 #'
-#' @return The result of `shiny::runApp()`.
+#' @param server_dir Optional override for the directory containing source image
+#'   files.
+#' @param timing_ticks_dir Optional override for the directory containing timing
+#'   tick `.rds` files.
+#'
+#' @return The result of [shiny::runApp()]. This function is primarily used for
+#'   its side effect of launching an interactive application.
+#'
+#' @examplesIf interactive()
+#' tick_click_app()
 #' @export
 tick_click_app <- function(server_dir = NULL, timing_ticks_dir = NULL) {
   shiny::runApp(magnemite_timing_tick_click_app(server_dir = server_dir, timing_ticks_dir = timing_ticks_dir))

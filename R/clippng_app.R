@@ -430,11 +430,15 @@ magnemite_clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir
 #' This function reverses those offsets before writing back to the RDS and
 #' removes padded `NA` pairs from each trace.
 #'
-#' @param csv_path Path to the `_clipped_traces.csv` file from the clippng app.
-#' @param rds_path Path to the digitized `.rds` file to update.
+#' @param csv_path Path to a `_clipped_traces.csv` file created by
+#'   [clippng_app()].
+#' @param rds_path Path to the digitized `.rds` file that should be updated in
+#'   place.
 #'
 #' @return The updated RDS object (invisibly). The file at `rds_path` is
 #'   overwritten in place.
+#'
+#' @seealso [apply_clipped_csv_batch()], [clippng_app()]
 #' @export
 apply_clipped_csv <- function(csv_path, rds_path) {
   if (!file.exists(csv_path)) {
@@ -495,7 +499,12 @@ apply_clipped_csv <- function(csv_path, rds_path) {
 #' @param server_dir Server root directory containing digitized RDS files.
 #'   Defaults to `MAGNEMITE_SERVER_DIR` env var or `D:/SERVER`.
 #'
-#' @return Character vector of updated RDS paths (invisibly).
+#' @return A character vector of updated RDS paths, returned invisibly.
+#'
+#' @details When multiple RDS candidates match the same base name, the function
+#' prefers `-Digitized.rds` over `-FailToProcess*.rds`.
+#'
+#' @seealso [apply_clipped_csv()], [clippng_app()]
 #' @export
 apply_clipped_csv_batch <- function(clipped_csv_dir = NULL, server_dir = NULL) {
   if (is.null(clipped_csv_dir) || !nzchar(clipped_csv_dir)) {
@@ -546,6 +555,7 @@ apply_clipped_csv_batch <- function(clipped_csv_dir = NULL, server_dir = NULL) {
 
   for (csv_path in csv_files) {
     base <- sub("_clipped_traces\\.csv$", "", basename(csv_path))
+    base <- sub("\\.tif$", "", base, ignore.case = TRUE)
     matches <- rds_files[rds_keys == base]
 
     if (length(matches) == 0) {
@@ -571,11 +581,22 @@ apply_clipped_csv_batch <- function(clipped_csv_dir = NULL, server_dir = NULL) {
 #'
 #' Launches the clipping app.
 #'
-#' @param project_dir Optional project directory override.
-#' @param db_path Optional database path override.
-#' @param output_dir Optional output directory override.
+#' The app guides the user through selecting top and bottom trace boundaries on
+#' digitized magnetogram images, then writes a `_clipped_traces.csv` file that
+#' can later be applied back to the original RDS records with
+#' [apply_clipped_csv()] or [apply_clipped_csv_batch()].
 #'
-#' @return The result of `shiny::runApp()`.
+#' @param project_dir Optional override for the clippng project directory.
+#' @param db_path Optional override for the SQLite database used to populate the
+#'   app's image list.
+#' @param output_dir Optional override for where `_clipped_traces.csv` outputs
+#'   should be written.
+#'
+#' @return The result of [shiny::runApp()]. This function is primarily used for
+#'   its side effect of launching an interactive application.
+#'
+#' @examplesIf interactive()
+#' clippng_app()
 #' @export
 clippng_app <- function(project_dir = NULL, db_path = NULL, output_dir = NULL) {
   app <- magnemite_clippng_app(project_dir = project_dir, db_path = db_path, output_dir = output_dir)

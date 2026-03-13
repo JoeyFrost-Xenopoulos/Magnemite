@@ -5,7 +5,7 @@ Version: 0.1.0
 Authors@R: c(
     person(
       "Joey", "Frost-Xenopoulos",
-      email = "joey@example.com",
+      email = "joeyfrostxenopoulos@trentu.ca",
       role = c("aut", "cre")
     )
   )
@@ -14,7 +14,7 @@ Description: Workflows for historical magnetogram processing,
   helpers, web asset and index generation, Shiny apps for clipping and timing
   tick correction, and reusable preprocessing and functional clustering
   utilities migrated from legacy analysis notebooks.
-License: MIT + file LICENSE
+License: MIT
 Encoding: UTF-8
 LazyData: true
 Imports:
@@ -27,4 +27,11 @@ Imports:
   RSQLite,
   reshape2,
   shiny
+Suggests:
+  knitr,
+  rmarkdown,
+  testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

@@ -9,11 +9,20 @@ midnight_curves(data_files, center_value = 638)
 \arguments{
 \item{data_files}{Character vector of trace RDS file paths.}
 
-\item{center_value}{Centering value for post-first-file alignment.}
+\item{center_value}{Reference value used to align all files after the first
+file in the sequence.}
 }
 \value{
-A list of data frames with `x` and `y` columns.
+A list of data frames with \code{x} and \code{y} columns, one per detected
+midnight-to-midnight segment.
 }
 \description{
 Builds midnight-segmented curve data from a sequence of trace RDS files.
+}
+\details{
+The function concatenates available top and bottom time sequences, aligns the
+associated trace values, and then splits the combined series into intervals
+bounded by occurrences of \code{0} in the time vector. Each interval is returned
+as a data frame with \code{x} and \code{y} columns for downstream plotting or model
+fitting.
 }

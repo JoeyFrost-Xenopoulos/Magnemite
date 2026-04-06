@@ -7,13 +7,26 @@
 tick_click_app(server_dir = NULL, timing_ticks_dir = NULL)
 }
 \arguments{
-\item{server_dir}{Optional server source directory override.}
+\item{server_dir}{Optional override for the directory containing source image
+files.}
 
-\item{timing_ticks_dir}{Optional timing tick RDS directory override.}
+\item{timing_ticks_dir}{Optional override for the directory containing timing
+tick \code{.rds} files.}
 }
 \value{
-The result of `shiny::runApp()`.
+The result of \code{\link[shiny:runApp]{shiny::runApp()}}. This function is primarily used for
+its side effect of launching an interactive application.
 }
 \description{
 Launches the timing tick click-correction app.
+}
+\details{
+This app displays the source image alongside previously saved timing tick
+medians and lets you add manual correction clicks that are written back to the
+corresponding timing tick RDS file.
+}
+\examples{
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+tick_click_app()
+\dontshow{\}) # examplesIf}
 }

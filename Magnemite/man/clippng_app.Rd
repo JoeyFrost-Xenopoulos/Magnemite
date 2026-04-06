@@ -7,15 +7,29 @@
 clippng_app(project_dir = NULL, db_path = NULL, output_dir = NULL)
 }
 \arguments{
-\item{project_dir}{Optional project directory override.}
+\item{project_dir}{Optional override for the clippng project directory.}
 
-\item{db_path}{Optional database path override.}
+\item{db_path}{Optional override for the SQLite database used to populate the
+app's image list.}
 
-\item{output_dir}{Optional output directory override.}
+\item{output_dir}{Optional override for where \verb{_clipped_traces.csv} outputs
+should be written.}
 }
 \value{
-The result of `shiny::runApp()`.
+The result of \code{\link[shiny:runApp]{shiny::runApp()}}. This function is primarily used for
+its side effect of launching an interactive application.
 }
 \description{
 Launches the clipping app.
+}
+\details{
+The app guides the user through selecting top and bottom trace boundaries on
+digitized magnetogram images, then writes a \verb{_clipped_traces.csv} file that
+can later be applied back to the original RDS records with
+\code{\link[=apply_clipped_csv]{apply_clipped_csv()}} or \code{\link[=apply_clipped_csv_batch]{apply_clipped_csv_batch()}}.
+}
+\examples{
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+clippng_app()
+\dontshow{\}) # examplesIf}
 }

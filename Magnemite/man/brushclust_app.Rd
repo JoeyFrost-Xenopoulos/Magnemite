@@ -7,15 +7,29 @@
 brushclust_app(server_dir = NULL, timing_ticks_dir = NULL, output_dir = NULL)
 }
 \arguments{
-\item{server_dir}{Optional server source directory override.}
+\item{server_dir}{Optional override for the server directory containing year
+folders and source \code{.tif} files.}
 
-\item{timing_ticks_dir}{Optional timing tick RDS directory override.}
+\item{timing_ticks_dir}{Optional override for the directory where timing tick
+\code{.rds} files are read from and written to.}
 
-\item{output_dir}{Optional output directory override.}
+\item{output_dir}{Optional override for the directory used for temporary plot
+outputs created by the app.}
 }
 \value{
-The result of `shiny::runApp()`.
+The result of \code{\link[shiny:runApp]{shiny::runApp()}}. This function is primarily used for
+its side effect of launching an interactive application.
 }
 \description{
 Launches the BrushClust Shiny app.
+}
+\details{
+This app loads source magnetogram images, clusters likely timing tick
+regions, and lets you brush candidate points before saving derived timing
+tick medians to an RDS file.
+}
+\examples{
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+brushclust_app()
+\dontshow{\}) # examplesIf}
 }

@@ -7,18 +7,25 @@
 apply_clipped_csv_batch(clipped_csv_dir = NULL, server_dir = NULL)
 }
 \arguments{
-\item{clipped_csv_dir}{Directory containing `_clipped_traces.csv` files.
-Defaults to `D:/Magnemite_Out/data/clipped_traces`.}
+\item{clipped_csv_dir}{Directory containing \verb{_clipped_traces.csv} files.
+Defaults to \verb{D:/Magnemite_Out/data/clipped_traces}.}
 
 \item{server_dir}{Server root directory containing digitized RDS files.
-Defaults to `MAGNEMITE_SERVER_DIR` env var or `D:/SERVER`.}
+Defaults to \code{MAGNEMITE_SERVER_DIR} env var or \verb{D:/SERVER}.}
 }
 \value{
-Character vector of updated RDS paths (invisibly).
+A character vector of updated RDS paths, returned invisibly.
 }
 \description{
-Scans a directory of `_clipped_traces.csv` files and applies each one to its
-matching digitized RDS file using `apply_clipped_csv()`. The lookup is
-recursive under `server_dir` and supports both `*.tif-Digitized.rds` and
-`*.tif-FailToProcess.rds` / `*.tif-FailToProcess-Data.rds` naming patterns.
+Scans a directory of \verb{_clipped_traces.csv} files and applies each one to its
+matching digitized RDS file using \code{apply_clipped_csv()}. The lookup is
+recursive under \code{server_dir} and supports both \verb{*.tif-Digitized.rds} and
+\verb{*.tif-FailToProcess.rds} / \verb{*.tif-FailToProcess-Data.rds} naming patterns.
+}
+\details{
+When multiple RDS candidates match the same base name, the function
+prefers \code{-Digitized.rds} over \code{-FailToProcess*.rds}.
+}
+\seealso{
+\code{\link[=apply_clipped_csv]{apply_clipped_csv()}}, \code{\link[=clippng_app]{clippng_app()}}
 }

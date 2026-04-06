@@ -40,13 +40,31 @@ magnemite_functional_paths <- function(server_dir = NULL, attempts_dir = NULL, o
 
 #' List Trace RDS Files
 #'
-#' Lists RDS trace files from a directory and optionally excludes specified base
-#' names.
+#' List Timing-Trace RDS Files
 #'
-#' @param server_dir Directory containing trace RDS files.
-#' @param exclude_base_names Character vector of base names to exclude.
+#' Lists timing-trace RDS files in a directory and optionally removes records
+#' whose normalized base names appear in an exclusion list.
 #'
-#' @return Character vector of RDS file paths.
+#' The matching key is the file name with the `.rds` or `.RDS` extension
+#' removed, followed by removal of `.tif-Digitized` or
+#' `.tif-FailToProcess`. This makes it easier to exclude files using the core
+#' magnetogram identifier rather than the exact on-disk suffix.
+#'
+#' @param server_dir Directory containing timing-trace RDS files.
+#' @param exclude_base_names Character vector of normalized base names to
+#'   exclude after suffix cleanup.
+#'
+#' @return A character vector of matching RDS file paths.
+#'
+#' @examples
+#' tmp <- tempdir()
+#' files <- c(
+#'   "AGC-D-19020101.tif-Digitized.rds",
+#'   "AGC-D-19020102.tif-FailToProcess.rds"
+#' )
+#' file.create(file.path(tmp, files))
+#' list_tick_rds(tmp)
+#' list_tick_rds(tmp, exclude_base_names = "AGC-D-19020102")
 #' @export
 list_tick_rds <- function(server_dir, exclude_base_names = character()) {
   data_files <- list.files(server_dir, pattern = "\\.RDS$|\\.rds$", full.names = TRUE)
@@ -62,10 +80,25 @@ list_tick_rds <- function(server_dir, exclude_base_names = character()) {
 #'
 #' Adds hourly `actual_time` labels to top and/or bottom timing tick tables.
 #'
-#' @param tt Timing tick object with top/bottom tables.
-#' @param min_length Minimum sequence length used for time generation.
+#' The function sorts each available `median_X` vector in ascending order before
+#' generating times. A starting label of `12:00` is used for shorter traces and
+#' `11:00` for longer traces so the assigned sequence matches the historical
+#' workflows used in the original notebooks.
 #'
-#' @return Updated timing tick object.
+#' @param tt A timing tick object stored as a two-element list, where `tt[[1]]`
+#'   is the bottom trace table and `tt[[2]]` is the top trace table.
+#' @param min_length Minimum sequence length used when building the candidate
+#'   hourly time vector.
+#'
+#' @return The updated timing tick object, with an `actual_time` column added to
+#'   each available trace table.
+#'
+#' @examples
+#' tt <- list(
+#'   data.frame(Cluster = 1:3, median_X = c(30, 10, 20)),
+#'   data.frame(Cluster = 1:2, median_X = c(40, 15))
+#' )
+#' assign_times(tt)
 #' @export
 assign_times <- function(tt, min_length = 25) {
   if (is.null(tt[[1]]) && is.null(tt[[2]])) {
@@ -103,12 +136,24 @@ assign_times <- function(tt, min_length = 25) {
 #' Reads timing tick RDS files, assigns actual times, and writes updated files
 #' to an output directory.
 #'
+#' This is a batch wrapper around [assign_times()]. Files that fail to read are
+#' skipped silently, and successfully processed files are written to
+#' `output_dir` using the same file names.
+#'
 #' @param input_dir Directory containing input timing tick RDS files.
 #' @param output_dir Directory for updated output files.
-#' @param include_files Optional explicit file list to process.
+#' @param include_files Optional explicit character vector of file names to
+#'   process. When `NULL`, all files in `input_dir` are considered.
 #' @param exclude_files Character vector of file names to skip.
 #'
-#' @return Character vector of written output file paths (invisibly).
+#' @return A character vector of written output file paths, returned invisibly.
+#'
+#' @examples
+#' input_dir <- tempfile("input")
+#' output_dir <- tempfile("output")
+#' dir.create(input_dir)
+#' saveRDS(list(data.frame(Cluster = 1, median_X = 10), NULL), file.path(input_dir, "sample.rds"))
+#' assign_times_batch(input_dir, output_dir)
 #' @export
 assign_times_batch <- function(
   input_dir,
@@ -148,12 +193,24 @@ assign_times_batch <- function(
 #' Shifts assigned `actual_time` values for top, bottom, or both traces by a
 #' specified direction and amount.
 #'
-#' @param tt Timing tick object.
+#' The direction convention follows the legacy workflow. Choosing `"<-"`
+#' increases the underlying hour labels, while `"->"` decreases them. Values
+#' are wrapped modulo 24 so the result always stays in `HH:00` format.
+#'
+#' @param tt Timing tick object produced by [assign_times()] or read from a
+#'   timing tick RDS file.
 #' @param trace Which trace(s) to adjust: `"top"`, `"bot"`, or `"both"`.
 #' @param direction Shift direction: `"<-"` or `"->"`.
 #' @param amount Integer number of hours to shift.
 #'
-#' @return Updated timing tick object.
+#' @return The updated timing tick object.
+#'
+#' @examples
+#' tt <- list(
+#'   data.frame(actual_time = c("12:00", "13:00")),
+#'   data.frame(actual_time = c("14:00", "15:00"))
+#' )
+#' adjust_times(tt, trace = "both", direction = "<-", amount = 1)
 #' @export
 adjust_times <- function(tt, trace = c("top", "bot", "both"), direction = c("<-", "->"), amount = 1) {
   trace <- match.arg(trace)
@@ -188,10 +245,17 @@ adjust_times <- function(tt, trace = c("top", "bot", "both"), direction = c("<-"
 #'
 #' Applies manual date-keyed time adjustments to matching RDS files.
 #'
+#' `adjustments` should be a named list keyed by dates in `YYYYMMDD` format.
+#' Each entry is expected to contain at least `trace` and `direction`, where
+#' `direction` stores both the arrow and hour amount, for example `"<- 2"` or
+#' `"-> 1"`.
+#'
 #' @param rds_files Character vector of RDS file paths.
 #' @param adjustments Named list of adjustment definitions by date key.
 #'
-#' @return `TRUE`, invisibly.
+#' @return `TRUE`, invisibly, after applying all matching adjustments.
+#'
+#' @seealso [adjust_times()]
 #' @export
 apply_adjustments <- function(rds_files, adjustments) {
   for (date_key in names(adjustments)) {
@@ -226,10 +290,18 @@ apply_adjustments <- function(rds_files, adjustments) {
 #'
 #' Builds midnight-segmented curve data from a sequence of trace RDS files.
 #'
-#' @param data_files Character vector of trace RDS file paths.
-#' @param center_value Centering value for post-first-file alignment.
+#' The function concatenates available top and bottom time sequences, aligns the
+#' associated trace values, and then splits the combined series into intervals
+#' bounded by occurrences of `0` in the time vector. Each interval is returned
+#' as a data frame with `x` and `y` columns for downstream plotting or model
+#' fitting.
 #'
-#' @return A list of data frames with `x` and `y` columns.
+#' @param data_files Character vector of trace RDS file paths.
+#' @param center_value Reference value used to align all files after the first
+#'   file in the sequence.
+#'
+#' @return A list of data frames with `x` and `y` columns, one per detected
+#'   midnight-to-midnight segment.
 #' @export
 midnight_curves <- function(data_files, center_value = 638) {
   time_vec <- c()

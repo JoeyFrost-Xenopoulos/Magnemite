@@ -7,13 +7,29 @@
 assign_times(tt, min_length = 25)
 }
 \arguments{
-\item{tt}{Timing tick object with top/bottom tables.}
+\item{tt}{A timing tick object stored as a two-element list, where \code{tt[[1]]}
+is the bottom trace table and \code{tt[[2]]} is the top trace table.}
 
-\item{min_length}{Minimum sequence length used for time generation.}
+\item{min_length}{Minimum sequence length used when building the candidate
+hourly time vector.}
 }
 \value{
-Updated timing tick object.
+The updated timing tick object, with an \code{actual_time} column added to
+each available trace table.
 }
 \description{
-Adds hourly `actual_time` labels to top and/or bottom timing tick tables.
+Adds hourly \code{actual_time} labels to top and/or bottom timing tick tables.
+}
+\details{
+The function sorts each available \code{median_X} vector in ascending order before
+generating times. A starting label of \code{12:00} is used for shorter traces and
+\code{11:00} for longer traces so the assigned sequence matches the historical
+workflows used in the original notebooks.
+}
+\examples{
+tt <- list(
+  data.frame(Cluster = 1:3, median_X = c(30, 10, 20)),
+  data.frame(Cluster = 1:2, median_X = c(40, 15))
+)
+assign_times(tt)
 }

@@ -1,0 +1,158 @@
+---
+title: "Magnemite Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Magnemite Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library(magnemite)
+```
+
+`magnemite` supports the historical magnetogram workflow from trace clipping
+through time assignment and curve construction. This vignette documents the
+intended package pipeline and gives a small runnable example for the pure
+in-memory steps.
+
+## Pipeline overview
+
+The package is organized around six stages:
+
+1. Clip top and bottom traces interactively.
+2. Apply clipped CSV output back to digitized RDS files.
+3. Generate a first pass of timing ticks with the clustering app.
+4. Apply manual timing tick corrections.
+5. Assign clock times and any final manual offsets.
+6. Build midnight-segmented curves for downstream analysis.
+
+## 1. Clip traces
+
+Use the clipping app to define top and bottom trace ranges on each image. You pick a year, and you are looking to cut the traces short when there is significant runoff over the numbers. If the trace is not tracking the line well that is not the point of this app. You just want to fix the start and stop points of each traces. 
+
+```{r eval = FALSE}
+clippng_app()
+```
+
+By default, clipped CSV files are written under:
+
+```{r eval = FALSE}
+file.path(Sys.getenv("MAGNEMITE_OUTPUT_DIR", unset = "D:/Magnemite_Out"), "data", "clipped_traces")
+```
+
+## 2. Apply clipped CSV output back to digitized RDS files
+
+For a single file:
+
+```{r eval = FALSE}
+apply_clipped_csv(
+  csv_path = "D:/Magnemite_Out/data/clipped_traces/AGC-D-19020102-19020104.tif_clipped_traces.csv",
+  rds_path = "D:/SERVER/1902/AGC-D-19020102-19020104.tif-Digitized.rds"
+)
+```
+
+For a directory of clipped CSV files:
+
+```{r eval = FALSE}
+apply_clipped_csv_batch(
+  clipped_csv_dir = "D:/Magnemite_Out/data/clipped_traces",
+  server_dir = "D:/SERVER"
+)
+```
+
+## 3. Create first-pass timing ticks
+
+Run the BrushClust app after the digitized traces are in place. What you are looking for is a toothy distribution and you want to brush over those regions for the program to semi detect those teeth (timing ticks). You can do more than one pass over the teeth if you want to do a better job of covering the region. The process button does the initial clustering, and the done buttons finish the detection and display the timing tick x values below. 
+
+```{r eval = FALSE}
+brushclust_app()
+```
+
+This writes timing tick RDS files to `data/timing_ticks` under the output root
+unless you override the app paths.
+
+## 4. Manually correct timing ticks
+
+Use the click-correction app to add or repair timing tick positions. You simply click on the images x to override potential fraudulant and improper brush clust outputs. 
+
+```{r eval = FALSE}
+tick_click_app()
+```
+
+## 5. Assign clock times
+
+The time-assignment helpers are fully scriptable and can be used without the
+apps. The example below is runnable and shows the basic object format.
+
+```{r}
+tt <- list(
+  data.frame(Cluster = 1:3, median_X = c(30, 10, 20)),
+  data.frame(Cluster = 1:2, median_X = c(40, 15))
+)
+
+assigned <- assign_times(tt)
+assigned
+```
+
+You can then shift one or both traces when a known hourly offset is present.
+
+```{r}
+adjust_times(assigned, trace = "both", direction = "<-", amount = 1)
+```
+
+For batch processing:
+
+```{r eval = FALSE}
+assign_times_batch(
+  input_dir = "D:/Magnemite_Out/data/timing_ticks",
+  output_dir = "D:/Magnemite_Out/data/Attempts"
+)
+```
+
+Optional manual adjustments can be applied with a date-keyed list.
+
+```{r eval = FALSE}
+rds_files <- list.files("D:/Magnemite_Out/data/Attempts", pattern = "\\.rds$", full.names = TRUE)
+
+apply_adjustments(
+  rds_files,
+  adjustments = list(
+    "19020102" = list(trace = "both", direction = "<- 1")
+  )
+)
+```
+
+## 6. Build midnight curves
+
+Once the adjusted RDS files are ready, list them and construct midnight
+segments.
+
+```{r eval = FALSE}
+files <- list_tick_rds("D:/Magnemite_Out/data/Attempts")
+curves <- midnight_curves(files)
+```
+
+## Path conventions
+
+The default path behavior is:
+
+- Output root: `MAGNEMITE_OUTPUT_DIR` or `D:/Magnemite_Out`
+- Server root: `MAGNEMITE_SERVER_DIR`, then `NOSEPASS_SERVER_DIR`, then `D:/SERVER`
+- Clipped CSV output: `<output_root>/data/clipped_traces`
+- Timing tick output: `<output_root>/data/timing_ticks`
+- Suggested time-assigned output: `<output_root>/data/Attempts`
+
+When working on a new machine, setting the two environment variables below is
+usually enough to make the package pipeline portable:
+
+```{r eval = FALSE}
+Sys.setenv(
+  MAGNEMITE_OUTPUT_DIR = "D:/Magnemite_Out",
+  MAGNEMITE_SERVER_DIR = "D:/SERVER"
+)
+```

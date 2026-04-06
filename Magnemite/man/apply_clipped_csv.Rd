@@ -7,13 +7,15 @@
 apply_clipped_csv(csv_path, rds_path)
 }
 \arguments{
-\item{csv_path}{Path to the `_clipped_traces.csv` file from the clippng app.}
+\item{csv_path}{Path to a \verb{_clipped_traces.csv} file created by
+\code{\link[=clippng_app]{clippng_app()}}.}
 
-\item{rds_path}{Path to the digitized `.rds` file to update.}
+\item{rds_path}{Path to the digitized \code{.rds} file that should be updated in
+place.}
 }
 \value{
-The updated RDS object (invisibly). The file at `rds_path` is
-  overwritten in place.
+The updated RDS object (invisibly). The file at \code{rds_path} is
+overwritten in place.
 }
 \description{
 Reads a clipped traces CSV produced by the clippng app and writes the
@@ -23,5 +25,8 @@ digitized RDS file.
 \details{
 The clippng app stores coordinates with a +96 y-offset and +125 x-offset.
 This function reverses those offsets before writing back to the RDS and
-removes padded `NA` pairs from each trace.
+removes padded \code{NA} pairs from each trace.
+}
+\seealso{
+\code{\link[=apply_clipped_csv_batch]{apply_clipped_csv_batch()}}, \code{\link[=clippng_app]{clippng_app()}}
 }

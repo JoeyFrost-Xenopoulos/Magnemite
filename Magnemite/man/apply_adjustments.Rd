@@ -12,8 +12,17 @@ apply_adjustments(rds_files, adjustments)
 \item{adjustments}{Named list of adjustment definitions by date key.}
 }
 \value{
-`TRUE`, invisibly.
+\code{TRUE}, invisibly, after applying all matching adjustments.
 }
 \description{
 Applies manual date-keyed time adjustments to matching RDS files.
+}
+\details{
+\code{adjustments} should be a named list keyed by dates in \code{YYYYMMDD} format.
+Each entry is expected to contain at least \code{trace} and \code{direction}, where
+\code{direction} stores both the arrow and hour amount, for example \code{"<- 2"} or
+\code{"-> 1"}.
+}
+\seealso{
+\code{\link[=adjust_times]{adjust_times()}}
 }

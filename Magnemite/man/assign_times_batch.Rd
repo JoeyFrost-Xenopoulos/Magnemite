@@ -16,14 +16,27 @@ assign_times_batch(
 
 \item{output_dir}{Directory for updated output files.}
 
-\item{include_files}{Optional explicit file list to process.}
+\item{include_files}{Optional explicit character vector of file names to
+process. When \code{NULL}, all files in \code{input_dir} are considered.}
 
 \item{exclude_files}{Character vector of file names to skip.}
 }
 \value{
-Character vector of written output file paths (invisibly).
+A character vector of written output file paths, returned invisibly.
 }
 \description{
 Reads timing tick RDS files, assigns actual times, and writes updated files
 to an output directory.
+}
+\details{
+This is a batch wrapper around \code{\link[=assign_times]{assign_times()}}. Files that fail to read are
+skipped silently, and successfully processed files are written to
+\code{output_dir} using the same file names.
+}
+\examples{
+input_dir <- tempfile("input")
+output_dir <- tempfile("output")
+dir.create(input_dir)
+saveRDS(list(data.frame(Cluster = 1, median_X = 10), NULL), file.path(input_dir, "sample.rds"))
+assign_times_batch(input_dir, output_dir)
 }
